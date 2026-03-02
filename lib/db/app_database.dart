@@ -9,7 +9,7 @@ import 'package:sqflite/sqflite.dart';
 /// Supports both file-based databases (production) and in-memory databases (testing).
 class AppDatabase {
   static const String _databaseName = 'the_borrowed_wings.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;  // Updated to v2 for new flight tables
   
   // Singleton pattern
   AppDatabase._privateConstructor() : _isTestInstance = false;
@@ -71,14 +71,20 @@ class AppDatabase {
   /// Creates database tables on first initialization
   Future<void> _onCreate(Database db, int version) async {
     await _createPilotTable(db);
+    await _createGlidersTable(db);
+    await _createFlightsTable(db);
+    await _createFlightFixesTable(db);
   }
 
   /// Handles database migrations when version changes
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle future migrations here
-    // For now, we only have version 1, so no migrations needed
     if (oldVersion < 1) {
       await _createPilotTable(db);
+    }
+    if (oldVersion < 2) {
+      await _createGlidersTable(db);
+      await _createFlightsTable(db);
+      await _createFlightFixesTable(db);
     }
   }
 
@@ -100,6 +106,63 @@ class AppDatabase {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
+    ''');
+  }
+
+  /// Creates the gliders table for equipment management
+  Future<void> _createGlidersTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE gliders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        manufacturer TEXT,
+        model TEXT NOT NULL,
+        glider_id TEXT,
+        wing_class TEXT,
+        notes TEXT,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  /// Creates the flights table for flight sessions
+  Future<void> _createFlightsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE flights (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        glider_id INTEGER NOT NULL,
+        started_at INTEGER NOT NULL,
+        takeoff_at INTEGER,
+        landed_at INTEGER,
+        duration_sec INTEGER NOT NULL,
+        fix_count INTEGER NOT NULL,
+        igc_path TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (glider_id) REFERENCES gliders (id) ON DELETE CASCADE
+      )
+    ''');
+  }
+
+  /// Creates the flight_fixes table for GPS waypoints
+  Future<void> _createFlightFixesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE flight_fixes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        flight_id INTEGER NOT NULL,
+        t INTEGER NOT NULL,
+        lat REAL NOT NULL,
+        lon REAL NOT NULL,
+        gps_alt_m INTEGER,
+        pressure_alt_m INTEGER,
+        speed_mps REAL,
+        accuracy_m REAL,
+        seq INTEGER NOT NULL,
+        FOREIGN KEY (flight_id) REFERENCES flights (id) ON DELETE CASCADE
+      )
+    ''');
+    
+    // Create index for efficient queries
+    await db.execute('''
+      CREATE INDEX idx_flight_fixes_flight_seq ON flight_fixes (flight_id, seq)
     ''');
   }
 

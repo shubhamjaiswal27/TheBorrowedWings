@@ -9,15 +9,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:the_borrowed_wings/main.dart';
-import 'package:the_borrowed_wings/ui/pilot_profile_page.dart';
+import 'package:the_borrowed_wings/app.dart';
 
 void main() {
-  testWidgets('The Borrowed Wings app loads successfully', (WidgetTester tester) async {
+  testWidgets('ParaglidingLog app loads successfully', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const TheBorrowedWingsApp());
+    await tester.pumpWidget(const ParaglidingLogApp());
 
     // Verify that the app title is displayed.
-    expect(find.text('The Borrowed Wings'), findsOneWidget);
+    expect(find.text('ParaglidingLog'), findsOneWidget);
     
     // Verify that the tagline is displayed.
     expect(find.text('Soar Together, Share Adventures'), findsOneWidget);
@@ -33,7 +33,7 @@ void main() {
 
   testWidgets('Get Started button can be tapped', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const TheBorrowedWingsApp());
+    await tester.pumpWidget(const ParaglidingLogApp());
     await tester.pumpAndSettle();
 
     // Scroll down to make the Get Started button visible
