@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'ui/pilot_profile_page.dart';
 
 void main() {
   runApp(const TheBorrowedWingsApp());
@@ -43,7 +44,7 @@ class WelcomeScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -119,10 +120,9 @@ class WelcomeScreen extends StatelessWidget {
                 // Get Started Button
                 ElevatedButton(
                   onPressed: () {
-                    // TODO: Navigate to main app or login screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Welcome to The Borrowed Wings! 🪂'),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const PilotProfilePage(),
                       ),
                     );
                   },
