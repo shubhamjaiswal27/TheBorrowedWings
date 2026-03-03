@@ -93,7 +93,7 @@ class TakeoffLandingDetector {
   DetectionResult processLocationUpdate(LocationData locationData, int sequenceNumber) {
     final now = DateTime.now();
     final fix = FlightFix.create(
-      flightId: 0, // Will be set when saving to database
+      flightId: '', // Will be set when saving to database
       timestamp: _getTimestamp(locationData, now),
       latitude: locationData.latitude!,
       longitude: locationData.longitude!,

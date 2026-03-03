@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import '../models/pilot.dart';
-import '../db/pilot_dao.dart';
+import '../repositories/pilot_repository.dart';
+import '../services/auth_service.dart';
 
-/// Pilot Profile page with view/edit modes and form validation.
+/// Pilot Profile page with view/edit modes, logout functionality, and form validation.
 /// 
 /// Features:
 /// - View mode: displays pilot information in a clean layout
 /// - Edit mode: form with validation for editing pilot details
 /// - FloatingActionButton toggles between modes
-/// - Persists data to SQLite database
-/// - Handles empty state when no profile exists
+/// - Logout functionality
+/// - Persists data to Supabase database
+/// - Requires authentication (user must be logged in)
 class PilotProfilePage extends StatefulWidget {
   const PilotProfilePage({super.key});
 
@@ -18,7 +20,8 @@ class PilotProfilePage extends StatefulWidget {
 }
 
 class _PilotProfilePageState extends State<PilotProfilePage> {
-  final PilotDao _pilotDao = PilotDao();
+  final PilotRepository _pilotRepository = PilotRepository();
+  final AuthService _authService = AuthService();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   
   // Controllers for form fields
@@ -65,7 +68,16 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
 
   Future<void> _loadPilotProfile() async {
     try {
-      final pilot = await _pilotDao.getProfile();
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        // User not authenticated, this shouldn't happen due to AuthGate
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final pilot = await _pilotRepository.getPilotByUserId(userId);
       setState(() {
         _currentPilot = pilot;
         _isLoading = false;
@@ -109,6 +121,12 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
     }
 
     try {
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        _showErrorSnackBar('User not authenticated');
+        return;
+      }
+
       final pilot = _currentPilot?.copyWith(
         fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
@@ -118,6 +136,7 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
         emergencyContactName: _emergencyContactNameController.text.trim().isEmpty ? null : _emergencyContactNameController.text.trim(),
         emergencyContactPhone: _emergencyContactPhoneController.text.trim().isEmpty ? null : _emergencyContactPhoneController.text.trim(),
       ) ?? Pilot.create(
+        userId: userId,
         fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
         phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
@@ -127,10 +146,12 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
         emergencyContactPhone: _emergencyContactPhoneController.text.trim().isEmpty ? null : _emergencyContactPhoneController.text.trim(),
       );
 
-      await _pilotDao.upsertProfile(pilot);
+      final savedPilot = (_currentPilot != null) 
+          ? await _pilotRepository.updatePilotByUserId(userId, pilot)
+          : await _pilotRepository.createPilot(pilot);
 
       setState(() {
-        _currentPilot = pilot;
+        _currentPilot = savedPilot;
         _isEditMode = false;
       });
 
@@ -147,7 +168,13 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
     if (!confirmed) return;
 
     try {
-      await _pilotDao.deleteProfile();
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        _showErrorSnackBar('User not authenticated');
+        return;
+      }
+
+      await _pilotRepository.deletePilotByUserId(userId);
       setState(() {
         _currentPilot = null;
         _isEditMode = true;
@@ -167,6 +194,36 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
       }
       _isEditMode = !_isEditMode;
     });
+  }
+
+  /// Handle user logout with confirmation
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _authService.signOut();
+        // Navigation will be handled by AuthGate listening to auth state changes
+      } catch (e) {
+        _showErrorSnackBar('Failed to logout: $e');
+      }
+    }
   }
 
   void _showSuccessSnackBar(String message) {
@@ -214,15 +271,21 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
       appBar: AppBar(
         title: const Text('Pilot Profile'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        actions: _currentPilot != null && !_isEditMode
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: _deleteProfile,
-                  tooltip: 'Delete Profile',
-                ),
-              ]
-            : null,
+        actions: [
+          // Logout button (always visible)
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _handleLogout,
+            tooltip: 'Logout',
+          ),
+          // Delete button (only visible when profile exists and not in edit mode)
+          if (_currentPilot != null && !_isEditMode)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _deleteProfile,
+              tooltip: 'Delete Profile',
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

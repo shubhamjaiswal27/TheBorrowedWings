@@ -3,7 +3,8 @@ import 'package:location/location.dart';
 import '../models/flight.dart';
 import '../models/flight_fix.dart';
 import '../models/glider.dart';
-import '../db/flight_dao.dart';
+import '../repositories/flight_repository.dart';
+import '../services/auth_service.dart';
 import 'location_service.dart';
 import 'takeoff_landing_detector.dart';
 
@@ -70,7 +71,8 @@ class RecordingStatus {
 class RecordingController {
   final LocationService _locationService;
   final TakeoffLandingDetector _detector;
-  final FlightDao _flightDao;
+  final FlightRepository _flightRepository;
+  final AuthService _authService;
 
   RecordingState _state = RecordingState.idle;
   StreamSubscription<LocationData>? _locationSubscription;
@@ -102,15 +104,23 @@ class RecordingController {
   RecordingController({
     LocationService? locationService,
     TakeoffLandingDetector? detector,
-    FlightDao? flightDao,
+    FlightRepository? flightRepository,
+    AuthService? authService,
   }) : _locationService = locationService ?? LocationService(),
        _detector = detector ?? TakeoffLandingDetector(),
-       _flightDao = flightDao ?? FlightDao();
+       _flightRepository = flightRepository ?? FlightRepository(),
+       _authService = authService ?? AuthService();
 
   /// Start recording with the specified glider
   Future<bool> startRecording(Glider glider) async {
     if (_state != RecordingState.idle) {
       return false; // Already recording
+    }
+
+    // Check authentication
+    if (!_authService.isAuthenticated) {
+      _emitStatus('User not authenticated');
+      return false;
     }
 
     try {
@@ -206,7 +216,7 @@ class RecordingController {
     
     // Create and store fix
     final fix = FlightFix.create(
-      flightId: 0, // Will be set when saving
+      flightId: '', // Will be set when saving
       timestamp: DateTime.now(), // Use current time instead of unreliable LocationData timestamp
       latitude: locationData.latitude!,
       longitude: locationData.longitude!,
@@ -252,6 +262,12 @@ class RecordingController {
       return;
     }
 
+    final userId = _authService.currentUserId;
+    if (userId == null) {
+      _emitStatus('User not authenticated');
+      return;
+    }
+
     try {
       // Filter fixes to only include those between takeoff and landing
       List<FlightFix> flightFixes = _currentFixes;
@@ -280,6 +296,7 @@ class RecordingController {
 
       // Create flight record
       final flight = Flight.create(
+        userId: userId,
         gliderId: _selectedGlider!.id!,
         startedAt: _recordingStartTime!,
         takeoffAt: _detector.takeoffTimestamp,
@@ -288,15 +305,15 @@ class RecordingController {
         fixCount: flightFixes.length,
       );
 
-      // Insert flight and get ID
-      final flightId = await _flightDao.insertFlight(flight);
-      _currentFlight = flight.copyWith(id: flightId);
+      // Insert flight and get the saved flight with ID
+      final savedFlight = await _flightRepository.createFlight(flight);
+      _currentFlight = savedFlight;
 
       // Update fixes with correct flight ID and save in batch
       final fixesWithFlightId = flightFixes.map((fix) =>
-          fix.copyWith(flightId: flightId)).toList();
+          fix.copyWith(flightId: savedFlight.id!)).toList();
       
-      await _flightDao.insertFlightFixesBatch(fixesWithFlightId);
+      await _flightRepository.addFlightFixesBatch(fixesWithFlightId);
 
       _emitStatus('Flight saved successfully!');
     } catch (e) {

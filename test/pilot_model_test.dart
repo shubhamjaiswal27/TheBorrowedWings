@@ -5,11 +5,13 @@ void main() {
   group('Pilot Model Tests', () {
     late DateTime testDate;
     late Pilot testPilot;
+    const testUserId = 'test-user-uuid-123';
 
     setUp(() {
       testDate = DateTime(2026, 3, 2, 10, 30, 0);
       testPilot = Pilot(
-        id: 1,
+        id: 'pilot-uuid-123',
+        userId: testUserId,
         fullName: 'John Doe',
         email: 'john.doe@example.com',
         phone: '+1-555-0123',
@@ -24,6 +26,7 @@ void main() {
 
     test('should create Pilot with factory constructor', () {
       final pilot = Pilot.create(
+        userId: testUserId,
         fullName: 'Test Pilot',
         email: 'test@example.com',
         phone: '+1-555-0100',
@@ -33,6 +36,7 @@ void main() {
         emergencyContactPhone: '+1-555-0101',
       );
 
+      expect(pilot.userId, testUserId);
       expect(pilot.fullName, 'Test Pilot');
       expect(pilot.email, 'test@example.com');
       expect(pilot.phone, '+1-555-0100');
@@ -47,8 +51,12 @@ void main() {
     });
 
     test('should create minimal Pilot with only required fields', () {
-      final pilot = Pilot.create(fullName: 'Minimal Pilot');
+      final pilot = Pilot.create(
+        userId: testUserId,
+        fullName: 'Minimal Pilot',
+      );
 
+      expect(pilot.userId, testUserId);
       expect(pilot.fullName, 'Minimal Pilot');
       expect(pilot.email, isNull);
       expect(pilot.phone, isNull);
@@ -62,7 +70,10 @@ void main() {
     });
 
     test('should copy pilot with updated fields and new timestamp', () async {
-      final originalPilot = Pilot.create(fullName: 'Original Name');
+      final originalPilot = Pilot.create(
+        userId: testUserId,
+        fullName: 'Original Name',
+      );
       
       // Wait a small amount to ensure different timestamps
       await Future.delayed(const Duration(milliseconds: 1));
@@ -72,6 +83,7 @@ void main() {
         email: 'updated@example.com',
       );
 
+      expect(updatedPilot.userId, testUserId);
       expect(updatedPilot.fullName, 'Updated Name');
       expect(updatedPilot.email, 'updated@example.com');
       expect(updatedPilot.createdAt, equals(originalPilot.createdAt));
@@ -81,7 +93,8 @@ void main() {
     test('should convert to map correctly', () {
       final map = testPilot.toMap();
 
-      expect(map['id'], 1);
+      expect(map['id'], 'pilot-uuid-123');
+      expect(map['user_id'], testUserId);
       expect(map['full_name'], 'John Doe');
       expect(map['email'], 'john.doe@example.com');
       expect(map['phone'], '+1-555-0123');
@@ -89,13 +102,14 @@ void main() {
       expect(map['license_id'], 'PG123456');
       expect(map['emergency_contact_name'], 'Jane Doe');
       expect(map['emergency_contact_phone'], '+1-555-0124');
-      expect(map['created_at'], testDate.millisecondsSinceEpoch);
-      expect(map['updated_at'], testDate.millisecondsSinceEpoch);
+      expect(map['created_at'], testDate.toIso8601String());
+      expect(map['updated_at'], testDate.toIso8601String());
     });
 
     test('should convert from map correctly', () {
       final map = {
-        'id': 2,
+        'id': 'pilot-uuid-456',
+        'user_id': testUserId,
         'full_name': 'Jane Smith',
         'email': 'jane.smith@example.com',
         'phone': '+1-555-0200',
@@ -103,13 +117,14 @@ void main() {
         'license_id': 'PG789012',
         'emergency_contact_name': 'John Smith',
         'emergency_contact_phone': '+1-555-0201',
-        'created_at': testDate.millisecondsSinceEpoch,
-        'updated_at': testDate.millisecondsSinceEpoch,
+        'created_at': testDate.toIso8601String(),
+        'updated_at': testDate.toIso8601String(),
       };
 
       final pilot = Pilot.fromMap(map);
 
-      expect(pilot.id, 2);
+      expect(pilot.id, 'pilot-uuid-456');
+      expect(pilot.userId, testUserId);
       expect(pilot.fullName, 'Jane Smith');
       expect(pilot.email, 'jane.smith@example.com');
       expect(pilot.phone, '+1-555-0200');
@@ -123,7 +138,8 @@ void main() {
 
     test('should handle null values in map conversion', () {
       final mapWithNulls = {
-        'id': 3,
+        'id': 'pilot-uuid-789',
+        'user_id': testUserId,
         'full_name': 'Minimal Pilot',
         'email': null,
         'phone': null,
@@ -131,13 +147,14 @@ void main() {
         'license_id': null,
         'emergency_contact_name': null,
         'emergency_contact_phone': null,
-        'created_at': testDate.millisecondsSinceEpoch,
-        'updated_at': testDate.millisecondsSinceEpoch,
+        'created_at': testDate.toIso8601String(),
+        'updated_at': testDate.toIso8601String(),
       };
 
       final pilot = Pilot.fromMap(mapWithNulls);
 
-      expect(pilot.id, 3);
+      expect(pilot.id, 'pilot-uuid-789');
+      expect(pilot.userId, testUserId);
       expect(pilot.fullName, 'Minimal Pilot');
       expect(pilot.email, isNull);
       expect(pilot.phone, isNull);
@@ -159,10 +176,14 @@ void main() {
     });
 
     test('toMap -> fromMap roundtrip should work with minimal data', () {
-      final minimalPilot = Pilot.create(fullName: 'Test Name');
+      final minimalPilot = Pilot.create(
+        userId: testUserId,
+        fullName: 'Test Name',
+      );
       final map = minimalPilot.toMap();
       final reconstructed = Pilot.fromMap(map);
 
+      expect(reconstructed.userId, minimalPilot.userId);
       expect(reconstructed.fullName, minimalPilot.fullName);
       expect(reconstructed.email, minimalPilot.email);
       expect(reconstructed.phone, minimalPilot.phone);
@@ -170,9 +191,9 @@ void main() {
       expect(reconstructed.licenseId, minimalPilot.licenseId);
       expect(reconstructed.emergencyContactName, minimalPilot.emergencyContactName);
       expect(reconstructed.emergencyContactPhone, minimalPilot.emergencyContactPhone);
-      // Compare timestamps with millisecond precision (SQLite precision)
-      expect(reconstructed.createdAt.millisecondsSinceEpoch, minimalPilot.createdAt.millisecondsSinceEpoch);
-      expect(reconstructed.updatedAt.millisecondsSinceEpoch, minimalPilot.updatedAt.millisecondsSinceEpoch);
+      // Compare timestamps with ISO string precision (Supabase precision)
+      expect(reconstructed.createdAt, minimalPilot.createdAt);
+      expect(reconstructed.updatedAt, minimalPilot.updatedAt);
     });
 
     group('Email Validation', () {
@@ -200,18 +221,21 @@ void main() {
       final baseTime = DateTime.now();
       
       final pilot1 = Pilot(
+        userId: testUserId,
         fullName: 'Test Pilot',
         createdAt: baseTime,
         updatedAt: baseTime,
       );
       
       final pilot2 = Pilot(
+        userId: testUserId,
         fullName: 'Test Pilot',
         createdAt: baseTime.add(const Duration(milliseconds: 1)), // Different timestamp
         updatedAt: baseTime.add(const Duration(milliseconds: 1)),
       );
       
       final pilot3 = Pilot(
+        userId: testUserId,
         fullName: 'Different Name',
         createdAt: baseTime,
         updatedAt: baseTime,
@@ -226,12 +250,14 @@ void main() {
       final baseTime = DateTime.now();
       
       final pilot1 = Pilot(
+        userId: testUserId,
         fullName: 'Test Pilot',
         createdAt: baseTime,
         updatedAt: baseTime,
       );
       
       final pilot2 = Pilot(
+        userId: testUserId,
         fullName: 'Test Pilot',
         createdAt: baseTime.add(const Duration(milliseconds: 1)), // Different timestamp
         updatedAt: baseTime.add(const Duration(milliseconds: 1)),
@@ -242,10 +268,15 @@ void main() {
     });
 
     test('should have meaningful toString representation', () {
-      final pilot = Pilot.create(fullName: 'Test Pilot', email: 'test@example.com');
+      final pilot = Pilot.create(
+        userId: testUserId,
+        fullName: 'Test Pilot',
+        email: 'test@example.com',
+      );
       final string = pilot.toString();
 
       expect(string, contains('Pilot'));
+      expect(string, contains(testUserId));
       expect(string, contains('Test Pilot'));
       expect(string, contains('test@example.com'));
       expect(string, contains('createdAt'));

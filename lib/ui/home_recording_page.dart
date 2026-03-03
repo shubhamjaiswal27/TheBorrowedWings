@@ -4,7 +4,8 @@ import 'package:location/location.dart';
 import '../models/glider.dart';
 import '../services/recording_controller.dart';
 import '../services/location_service.dart';
-import '../db/glider_dao.dart';
+import '../repositories/glider_repository.dart';
+import '../services/auth_service.dart';
 import 'gliders_page.dart';
 
 /// Main recording page for the ParaglidingLog app.
@@ -20,7 +21,8 @@ class HomeRecordingPage extends StatefulWidget {
 
 class _HomeRecordingPageState extends State<HomeRecordingPage> {
   final RecordingController _recordingController = RecordingController();
-  final GliderDao _gliderDao = GliderDao();
+  final GliderRepository _gliderRepository = GliderRepository();
+  final AuthService _authService = AuthService();
   
   List<Glider> _gliders = [];
   Glider? _selectedGlider;
@@ -44,7 +46,14 @@ class _HomeRecordingPageState extends State<HomeRecordingPage> {
 
   Future<void> _loadGliders() async {
     try {
-      final gliders = await _gliderDao.getAllGliders();
+      // Check authentication
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        _showErrorSnackBar('User not authenticated');
+        return;
+      }
+
+      final gliders = await _gliderRepository.getGlidersByUserId(userId);
       if (mounted) {
         setState(() {
           _gliders = gliders;
@@ -88,6 +97,13 @@ class _HomeRecordingPageState extends State<HomeRecordingPage> {
   Future<void> _startRecording() async {
     if (_selectedGlider == null) {
       _showErrorSnackBar('Please select a glider first');
+      return;
+    }
+
+    // Check authentication
+    final userId = _authService.currentUserId;
+    if (userId == null) {
+      _showErrorSnackBar('User not authenticated');
       return;
     }
 

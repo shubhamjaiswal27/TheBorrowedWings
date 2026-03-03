@@ -5,8 +5,8 @@ import 'dart:math' as math;
 /// Contains timestamp, coordinates, altitude, speed, and accuracy data
 /// collected during flight recording.
 class FlightFix {
-  final int? id;
-  final int flightId;
+  final String? id;
+  final String flightId; // Foreign key to flights table
   final DateTime timestamp;
   final double latitude;
   final double longitude;
@@ -31,7 +31,7 @@ class FlightFix {
 
   /// Creates a new flight fix
   factory FlightFix.create({
-    required int flightId,
+    required String flightId,
     required DateTime timestamp,
     required double latitude,
     required double longitude,
@@ -56,8 +56,8 @@ class FlightFix {
 
   /// Creates a copy with updated fields
   FlightFix copyWith({
-    int? id,
-    int? flightId,
+    String? id,
+    String? flightId,
     DateTime? timestamp,
     double? latitude,
     double? longitude,
@@ -142,12 +142,12 @@ class FlightFix {
     return other.timestamp.difference(timestamp).inMilliseconds / 1000.0;
   }
 
-  /// Converts flight fix to database map
+  /// Converts flight fix to Supabase map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'flight_id': flightId,
-      't': timestamp.millisecondsSinceEpoch,
+      't': timestamp.toIso8601String(),
       'lat': latitude,
       'lon': longitude,
       'gps_alt_m': gpsAltitudeM,
@@ -158,18 +158,18 @@ class FlightFix {
     };
   }
 
-  /// Creates flight fix from database map
+  /// Creates flight fix from Supabase map
   factory FlightFix.fromMap(Map<String, dynamic> map) {
     return FlightFix(
-      id: map['id'] as int?,
-      flightId: map['flight_id'] as int,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(map['t'] as int),
-      latitude: map['lat'] as double,
-      longitude: map['lon'] as double,
+      id: map['id'] as String?,
+      flightId: map['flight_id'] as String,
+      timestamp: DateTime.parse(map['t'] as String),
+      latitude: (map['lat'] as num).toDouble(),
+      longitude: (map['lon'] as num).toDouble(),
       gpsAltitudeM: map['gps_alt_m'] as int?,
       pressureAltitudeM: map['pressure_alt_m'] as int?,
-      speedMps: map['speed_mps'] as double?,
-      accuracyM: map['accuracy_m'] as double?,
+      speedMps: (map['speed_mps'] as num?)?.toDouble(),
+      accuracyM: (map['accuracy_m'] as num?)?.toDouble(),
       sequenceNumber: map['seq'] as int,
     );
   }

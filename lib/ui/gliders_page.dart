@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/glider.dart';
-import '../db/glider_dao.dart';
+import '../repositories/glider_repository.dart';
+import '../services/auth_service.dart';
 
 /// Page for managing glider equipment.
 /// 
@@ -13,8 +14,9 @@ class GlidersPage extends StatefulWidget {
 }
 
 class _GlidersPageState extends State<GlidersPage> {
-  final GliderDao _gliderDao = GliderDao();
-  List<Map<String, dynamic>> _glidersWithStats = [];
+  final GliderRepository _gliderRepository = GliderRepository();
+  final AuthService _authService = AuthService();
+  List<Glider> _gliders = [];
   bool _isLoading = true;
   bool _hasChanges = false; // Track if any gliders were modified
 
@@ -30,10 +32,16 @@ class _GlidersPageState extends State<GlidersPage> {
     });
 
     try {
-      final glidersWithStats = await _gliderDao.getGlidersWithStats();
+      // Check authentication
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final gliders = await _gliderRepository.getGlidersByUserId(userId);
       if (mounted) {
         setState(() {
-          _glidersWithStats = glidersWithStats;
+          _gliders = gliders;
           _isLoading = false;
         });
       }
@@ -81,7 +89,14 @@ class _GlidersPageState extends State<GlidersPage> {
 
     if (confirmed == true) {
       try {
-        await _gliderDao.deleteGlider(glider.id!);
+        // Check authentication
+        final userId = _authService.currentUserId;
+        if (userId == null) {
+          _showErrorSnackBar('User not authenticated');
+          return;
+        }
+
+        await _gliderRepository.deleteGlider(glider.id!, userId);
         _hasChanges = true; // Mark that changes were made
         _loadGliders();
         _showSuccessSnackBar('Glider deleted successfully');
@@ -118,7 +133,7 @@ class _GlidersPageState extends State<GlidersPage> {
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _glidersWithStats.isEmpty
+            : _gliders.isEmpty
                 ? _buildEmptyState()
                 : _buildGlidersList(),
         floatingActionButton: FloatingActionButton(
@@ -172,12 +187,9 @@ class _GlidersPageState extends State<GlidersPage> {
   Widget _buildGlidersList() {
     return ListView.builder(
       padding: const EdgeInsets.all(8.0),
-      itemCount: _glidersWithStats.length,
+      itemCount: _gliders.length,
       itemBuilder: (context, index) {
-        final item = _glidersWithStats[index];
-        final glider = item['glider'] as Glider;
-        final flightCount = item['flight_count'] as int;
-        final lastFlightAt = item['last_flight_at'] as DateTime?;
+        final glider = _gliders[index];
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
@@ -201,13 +213,11 @@ class _GlidersPageState extends State<GlidersPage> {
               children: [
                 if (glider.wingClass != null && glider.wingClass!.isNotEmpty)
                   Text('Class: ${glider.wingClass}'),
-                const SizedBox(height: 2),
-                Text('${flightCount} flights'),
-                if (lastFlightAt != null)
-                  Text('Last flight: ${_formatDate(lastFlightAt)}'),
+                if (glider.serialNumber != null && glider.serialNumber!.isNotEmpty)
+                  Text('Registration: ${glider.serialNumber}'),
               ],
             ),
-            isThreeLine: true,
+            isThreeLine: false,
             trailing: PopupMenuButton<String>(
               onSelected: (value) {
                 switch (value) {
@@ -283,11 +293,12 @@ class _GliderDialog extends StatefulWidget {
 
 class _GliderDialogState extends State<_GliderDialog> {
   final _formKey = GlobalKey<FormState>();
-  final GliderDao _gliderDao = GliderDao();
+  final GliderRepository _gliderRepository = GliderRepository();
+  final AuthService _authService = AuthService();
   
   late TextEditingController _manufacturerController;
   late TextEditingController _modelController;
-  late TextEditingController _gliderIdController;
+  late TextEditingController _serialNumberController;
   late TextEditingController _wingClassController;
   late TextEditingController _notesController;
   
@@ -298,7 +309,7 @@ class _GliderDialogState extends State<_GliderDialog> {
     super.initState();
     _manufacturerController = TextEditingController(text: widget.glider?.manufacturer ?? '');
     _modelController = TextEditingController(text: widget.glider?.model ?? '');
-    _gliderIdController = TextEditingController(text: widget.glider?.gliderId ?? '');
+    _serialNumberController = TextEditingController(text: widget.glider?.serialNumber ?? '');
     _wingClassController = TextEditingController(text: widget.glider?.wingClass ?? '');
     _notesController = TextEditingController(text: widget.glider?.notes ?? '');
   }
@@ -307,7 +318,7 @@ class _GliderDialogState extends State<_GliderDialog> {
   void dispose() {
     _manufacturerController.dispose();
     _modelController.dispose();
-    _gliderIdController.dispose();
+    _serialNumberController.dispose();
     _wingClassController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -318,19 +329,32 @@ class _GliderDialogState extends State<_GliderDialog> {
       return;
     }
 
+    // Check authentication
+    final userId = _authService.currentUserId;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User not authenticated'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       final glider = Glider.create(
+        userId: userId,
         manufacturer: _manufacturerController.text.trim().isEmpty 
             ? null 
             : _manufacturerController.text.trim(),
         model: _modelController.text.trim(),
-        gliderId: _gliderIdController.text.trim().isEmpty 
+        serialNumber: _serialNumberController.text.trim().isEmpty 
             ? null 
-            : _gliderIdController.text.trim(),
+            : _serialNumberController.text.trim(),
         wingClass: _wingClassController.text.trim().isEmpty 
             ? null 
             : _wingClassController.text.trim(),
@@ -341,11 +365,11 @@ class _GliderDialogState extends State<_GliderDialog> {
 
       if (widget.glider == null) {
         // Create new glider
-        final gliderId = await _gliderDao.insertGlider(glider);
+        await _gliderRepository.createGlider(glider);
       } else {
         // Update existing glider
         final updatedGlider = glider.copyWith(id: widget.glider!.id);
-        await _gliderDao.updateGlider(updatedGlider);
+        await _gliderRepository.updateGlider(updatedGlider, userId);
       }
 
       if (mounted) {
@@ -405,7 +429,7 @@ class _GliderDialogState extends State<_GliderDialog> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  controller: _gliderIdController,
+                  controller: _serialNumberController,
                   decoration: const InputDecoration(
                     labelText: 'Registration / Serial',
                     hintText: 'e.g. G-ABCD, Serial Number',

@@ -2,9 +2,11 @@
 /// 
 /// Each flight is associated with a glider and contains GPS fix data.
 /// Flights track takeoff and landing times detected automatically.
+/// Each flight belongs to the authenticated user.
 class Flight {
-  final int? id;
-  final int gliderId;
+  final String? id;
+  final String userId; // Foreign key to Supabase Auth user
+  final String gliderId; // Foreign key to gliders table
   final DateTime startedAt;
   final DateTime? takeoffAt;
   final DateTime? landedAt;
@@ -15,6 +17,7 @@ class Flight {
 
   const Flight({
     this.id,
+    required this.userId,
     required this.gliderId,
     required this.startedAt,
     this.takeoffAt,
@@ -27,7 +30,8 @@ class Flight {
 
   /// Creates a new flight with current timestamp
   factory Flight.create({
-    required int gliderId,
+    required String userId,
+    required String gliderId,
     required DateTime startedAt,
     DateTime? takeoffAt,
     DateTime? landedAt,
@@ -36,6 +40,7 @@ class Flight {
     String? igcPath,
   }) {
     return Flight(
+      userId: userId,
       gliderId: gliderId,
       startedAt: startedAt,
       takeoffAt: takeoffAt,
@@ -49,8 +54,9 @@ class Flight {
 
   /// Creates a copy with updated fields
   Flight copyWith({
-    int? id,
-    int? gliderId,
+    String? id,
+    String? userId,
+    String? gliderId,
     DateTime? startedAt,
     DateTime? takeoffAt,
     DateTime? landedAt,
@@ -61,6 +67,7 @@ class Flight {
   }) {
     return Flight(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       gliderId: gliderId ?? this.gliderId,
       startedAt: startedAt ?? this.startedAt,
       takeoffAt: takeoffAt ?? this.takeoffAt,
@@ -142,37 +149,39 @@ class Flight {
     }
   }
 
-  /// Converts flight to database map
+  /// Converts flight to Supabase map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'user_id': userId,
       'glider_id': gliderId,
-      'started_at': startedAt.millisecondsSinceEpoch,
-      'takeoff_at': takeoffAt?.millisecondsSinceEpoch,
-      'landed_at': landedAt?.millisecondsSinceEpoch,
+      'started_at': startedAt.toIso8601String(),
+      'takeoff_at': takeoffAt?.toIso8601String(),
+      'landed_at': landedAt?.toIso8601String(),
       'duration_sec': durationSec,
       'fix_count': fixCount,
       'igc_path': igcPath,
-      'created_at': createdAt.millisecondsSinceEpoch,
+      'created_at': createdAt.toIso8601String(),
     };
   }
 
-  /// Creates flight from database map
+  /// Creates flight from Supabase map
   factory Flight.fromMap(Map<String, dynamic> map) {
     return Flight(
-      id: map['id'] as int?,
-      gliderId: map['glider_id'] as int,
-      startedAt: DateTime.fromMillisecondsSinceEpoch(map['started_at'] as int),
+      id: map['id'] as String?,
+      userId: map['user_id'] as String,
+      gliderId: map['glider_id'] as String,
+      startedAt: DateTime.parse(map['started_at'] as String),
       takeoffAt: map['takeoff_at'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['takeoff_at'] as int)
+          ? DateTime.parse(map['takeoff_at'] as String)
           : null,
       landedAt: map['landed_at'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['landed_at'] as int)
+          ? DateTime.parse(map['landed_at'] as String)
           : null,
       durationSec: map['duration_sec'] as int,
       fixCount: map['fix_count'] as int,
       igcPath: map['igc_path'] as String?,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
+      createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
 
@@ -185,7 +194,7 @@ class Flight {
 
   @override
   String toString() {
-    return 'Flight{id: $id, gliderId: $gliderId, startedAt: $startedAt, '
+    return 'Flight{id: $id, userId: $userId, gliderId: $gliderId, startedAt: $startedAt, '
         'isCompleted: $isCompleted, duration: $formattedRecordingDuration, fixCount: $fixCount}';
   }
 
@@ -194,6 +203,7 @@ class Flight {
     if (identical(this, other)) return true;
     return other is Flight &&
         other.id == id &&
+        other.userId == userId &&
         other.gliderId == gliderId &&
         other.startedAt == startedAt &&
         other.takeoffAt == takeoffAt &&
@@ -204,6 +214,6 @@ class Flight {
 
   @override
   int get hashCode {
-    return Object.hash(id, gliderId, startedAt, takeoffAt, landedAt, durationSec, fixCount);
+    return Object.hash(id, userId, gliderId, startedAt, takeoffAt, landedAt, durationSec, fixCount);
   }
 }

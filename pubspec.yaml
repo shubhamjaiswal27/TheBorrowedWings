@@ -35,10 +35,8 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   
-  # SQLite database
-  sqflite: ^2.3.0
-  path: ^1.8.3
-  path_provider: ^2.1.1
+  # Supabase integration
+  supabase_flutter: ^2.5.6
   
   # Location and GPS tracking
   location: ^5.0.3
@@ -48,16 +46,14 @@ dependencies:
   
   # Permissions handling
   permission_handler: ^11.2.0
-  
-  # Desktop database support
-  sqflite_common_ffi: ^2.3.0+4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   
-  # SQLite testing support
-  sqflite_common_ffi: ^2.3.0+4
+  # Testing utilities
+  mockito: ^5.4.4
+  build_runner: ^2.4.10
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

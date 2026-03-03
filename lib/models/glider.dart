@@ -2,20 +2,23 @@
 /// 
 /// Each glider has basic metadata like manufacturer, model, and registration details.
 /// Gliders are selected when starting a flight recording session.
+/// Each glider belongs to the authenticated user.
 class Glider {
-  final int? id;
+  final String? id;
+  final String userId; // Foreign key to Supabase Auth user
   final String? manufacturer;
   final String model;
-  final String? gliderId;  // registration or serial number
+  final String? serialNumber;  // registration or serial number
   final String? wingClass;
   final String? notes;
   final DateTime createdAt;
 
   const Glider({
     this.id,
+    required this.userId,
     this.manufacturer,
     required this.model,
-    this.gliderId,
+    this.serialNumber,
     this.wingClass,
     this.notes,
     required this.createdAt,
@@ -23,16 +26,18 @@ class Glider {
 
   /// Creates a new glider with current timestamp
   factory Glider.create({
+    required String userId,
     String? manufacturer,
     required String model,
-    String? gliderId,
+    String? serialNumber,
     String? wingClass,
     String? notes,
   }) {
     return Glider(
+      userId: userId,
       manufacturer: manufacturer,
       model: model,
-      gliderId: gliderId,
+      serialNumber: serialNumber,
       wingClass: wingClass,
       notes: notes,
       createdAt: DateTime.now(),
@@ -41,19 +46,21 @@ class Glider {
 
   /// Creates a copy with updated fields
   Glider copyWith({
-    int? id,
+    String? id,
+    String? userId,
     String? manufacturer,
     String? model,
-    String? gliderId,
+    String? serialNumber,
     String? wingClass,
     String? notes,
     DateTime? createdAt,
   }) {
     return Glider(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       manufacturer: manufacturer ?? this.manufacturer,
       model: model ?? this.model,
-      gliderId: gliderId ?? this.gliderId,
+      serialNumber: serialNumber ?? this.serialNumber,
       wingClass: wingClass ?? this.wingClass,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -67,43 +74,45 @@ class Glider {
       parts.add(manufacturer!);
     }
     parts.add(model);
-    if (gliderId != null && gliderId!.isNotEmpty) {
-      parts.add('($gliderId)');
+    if (serialNumber != null && serialNumber!.isNotEmpty) {
+      parts.add('($serialNumber)');
     }
     return parts.join(' ');
   }
 
-  /// Converts glider to database map
+  /// Converts glider to Supabase map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'user_id': userId,
       'manufacturer': manufacturer,
       'model': model,
-      'glider_id': gliderId,
+      'serial_number': serialNumber,
       'wing_class': wingClass,
       'notes': notes,
-      'created_at': createdAt.millisecondsSinceEpoch,
+      'created_at': createdAt.toIso8601String(),
     };
   }
 
-  /// Creates glider from database map
-  factory Glider.fromMap(Map<String, dynamic> map) {
-    return Glider(
-      id: map['id'] as int?,
-      manufacturer: map['manufacturer'] as String?,
-      model: map['model'] as String,
-      gliderId: map['glider_id'] as String?,
-      wingClass: map['wing_class'] as String?,
-      notes: map['notes'] as String?,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
-    );
-  }
-
-  /// Returns map without ID for inserts
+  /// Converts glider to map for insert operations (without id)
   Map<String, dynamic> toMapForInsert() {
     final map = toMap();
     map.remove('id');
     return map;
+  }
+
+  /// Creates glider from Supabase map
+  factory Glider.fromMap(Map<String, dynamic> map) {
+    return Glider(
+      id: map['id'] as String?,
+      userId: map['user_id'] as String,
+      manufacturer: map['manufacturer'] as String?,
+      model: map['model'] as String,
+      serialNumber: map['serial_number'] as String?,
+      wingClass: map['wing_class'] as String?,
+      notes: map['notes'] as String?,
+      createdAt: DateTime.parse(map['created_at'] as String),
+    );
   }
 
   /// Validates model field is not empty
@@ -113,7 +122,7 @@ class Glider {
 
   @override
   String toString() {
-    return 'Glider{id: $id, displayName: $displayName, wingClass: $wingClass}';
+    return 'Glider{id: $id, userId: $userId, displayName: $displayName, wingClass: $wingClass}';
   }
 
   @override
@@ -121,15 +130,16 @@ class Glider {
     if (identical(this, other)) return true;
     return other is Glider &&
         other.id == id &&
+        other.userId == userId &&
         other.manufacturer == manufacturer &&
         other.model == model &&
-        other.gliderId == gliderId &&
+        other.serialNumber == serialNumber &&
         other.wingClass == wingClass &&
         other.notes == notes;
   }
 
   @override
   int get hashCode {
-    return Object.hash(id, manufacturer, model, gliderId, wingClass, notes);
+    return Object.hash(id, userId, manufacturer, model, serialNumber, wingClass, notes);
   }
 }

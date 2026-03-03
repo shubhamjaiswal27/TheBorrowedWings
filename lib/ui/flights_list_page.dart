@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/flight.dart';
 import '../models/glider.dart';
-import '../db/flight_dao.dart';
+import '../repositories/flight_repository.dart';
+import '../services/auth_service.dart';
 import '../igc/igc_writer.dart';
 import 'flight_details_page.dart';
 
@@ -15,7 +16,8 @@ class FlightsListPage extends StatefulWidget {
 }
 
 class _FlightsListPageState extends State<FlightsListPage> {
-  final FlightDao _flightDao = FlightDao();
+  final FlightRepository _flightRepository = FlightRepository();
+  final AuthService _authService = AuthService();
   final IgcWriter _igcWriter = IgcWriter();
   
   List<Map<String, dynamic>> _flightsWithGliders = [];
@@ -33,7 +35,13 @@ class _FlightsListPageState extends State<FlightsListPage> {
     });
 
     try {
-      final flightsWithGliders = await _flightDao.getAllFlightsWithGliders();
+      // Check authentication
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final flightsWithGliders = await _flightRepository.getFlightsWithGlidersByUserId(userId);
       if (mounted) {
         setState(() {
           _flightsWithGliders = flightsWithGliders;
@@ -52,6 +60,13 @@ class _FlightsListPageState extends State<FlightsListPage> {
 
   Future<void> _exportFlight(Flight flight) async {
     try {
+      // Check authentication
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        _showErrorSnackBar('User not authenticated');
+        return;
+      }
+
       _showLoadingSnackBar('Exporting flight...');
       
       final result = await _igcWriter.exportFlight(flight.id!);
@@ -98,7 +113,14 @@ class _FlightsListPageState extends State<FlightsListPage> {
 
     if (confirmed == true) {
       try {
-        await _flightDao.deleteFlight(flight.id!);
+        // Check authentication
+        final userId = _authService.currentUserId;
+        if (userId == null) {
+          _showErrorSnackBar('User not authenticated');
+          return;
+        }
+
+        await _flightRepository.deleteFlight(flight.id!, userId);
         _loadFlights();
         _showSuccessSnackBar('Flight deleted successfully');
       } catch (e) {
@@ -186,7 +208,15 @@ class _FlightsListPageState extends State<FlightsListPage> {
       itemBuilder: (context, index) {
         final item = _flightsWithGliders[index];
         final flight = item['flight'] as Flight;
-        final glider = item['glider'] as Glider;
+        // Handle glider data from repository format
+        final glider = Glider(
+          id: null, // Not needed for display
+          userId: flight.userId,
+          manufacturer: item['glider_manufacturer'] as String?,
+          model: item['glider_model'] as String,
+          wingClass: item['glider_wing_class'] as String?,
+          createdAt: DateTime.now(),
+        );
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
@@ -402,7 +432,7 @@ class _FlightsListPageState extends State<FlightsListPage> {
             Text(message),
           ],
         ),
-        duration: const Duration(minutes: 1), // Long duration for loading
+        duration: const Duration(minutes: 1),
       ),
     );
   }

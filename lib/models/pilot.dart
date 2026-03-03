@@ -1,9 +1,10 @@
 /// Pilot model representing a paragliding pilot's profile information.
 /// 
-/// This model uses the single row pattern where only one pilot profile
-/// exists in the database (enforced by using id=1).
+/// This model is tied 1:1 with Supabase Auth users via the userId field.
+/// Each authenticated user must have exactly one pilot profile.
 class Pilot {
-  final int? id;
+  final String? id;
+  final String userId; // Foreign key to Supabase Auth user
   final String fullName;
   final String? email;
   final String? phone;
@@ -16,6 +17,7 @@ class Pilot {
 
   const Pilot({
     this.id,
+    required this.userId,
     required this.fullName,
     this.email,
     this.phone,
@@ -29,6 +31,7 @@ class Pilot {
 
   /// Creates a new pilot with current timestamps
   factory Pilot.create({
+    required String userId,
     required String fullName,
     String? email,
     String? phone,
@@ -39,6 +42,7 @@ class Pilot {
   }) {
     final now = DateTime.now();
     return Pilot(
+      userId: userId,
       fullName: fullName,
       email: email,
       phone: phone,
@@ -53,7 +57,8 @@ class Pilot {
 
   /// Creates an updated copy with new updatedAt timestamp
   Pilot copyWith({
-    int? id,
+    String? id,
+    String? userId,
     String? fullName,
     String? email,
     String? phone,
@@ -65,6 +70,7 @@ class Pilot {
   }) {
     return Pilot(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       fullName: fullName ?? this.fullName,
       email: email ?? this.email,
       phone: phone ?? this.phone,
@@ -77,10 +83,11 @@ class Pilot {
     );
   }
 
-  /// Converts pilot to database map
+  /// Converts pilot to Supabase map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'user_id': userId,
       'full_name': fullName,
       'email': email,
       'phone': phone,
@@ -88,15 +95,23 @@ class Pilot {
       'license_id': licenseId,
       'emergency_contact_name': emergencyContactName,
       'emergency_contact_phone': emergencyContactPhone,
-      'created_at': createdAt.millisecondsSinceEpoch,
-      'updated_at': updatedAt.millisecondsSinceEpoch,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 
-  /// Creates pilot from database map
+  /// Converts pilot to map for insert operations (without id)
+  Map<String, dynamic> toMapForInsert() {
+    final map = toMap();
+    map.remove('id');
+    return map;
+  }
+
+  /// Creates pilot from Supabase map
   factory Pilot.fromMap(Map<String, dynamic> map) {
     return Pilot(
-      id: map['id'] as int?,
+      id: map['id'] as String?,
+      userId: map['user_id'] as String,
       fullName: map['full_name'] as String,
       email: map['email'] as String?,
       phone: map['phone'] as String?,
@@ -104,8 +119,8 @@ class Pilot {
       licenseId: map['license_id'] as String?,
       emergencyContactName: map['emergency_contact_name'] as String?,
       emergencyContactPhone: map['emergency_contact_phone'] as String?,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
+      createdAt: DateTime.parse(map['created_at'] as String),
+      updatedAt: DateTime.parse(map['updated_at'] as String),
     );
   }
 
@@ -139,7 +154,7 @@ class Pilot {
 
   @override
   String toString() {
-    return 'Pilot{id: $id, fullName: $fullName, email: $email, '
+    return 'Pilot{id: $id, userId: $userId, fullName: $fullName, email: $email, '
         'phone: $phone, nationality: $nationality, licenseId: $licenseId, '
         'emergencyContactName: $emergencyContactName, '
         'emergencyContactPhone: $emergencyContactPhone, '
@@ -152,6 +167,7 @@ class Pilot {
       other is Pilot &&
           runtimeType == other.runtimeType &&
           id == other.id &&
+          userId == other.userId &&
           fullName == other.fullName &&
           email == other.email &&
           phone == other.phone &&
@@ -165,6 +181,7 @@ class Pilot {
   @override
   int get hashCode => Object.hash(
         id,
+        userId,
         fullName,
         email,
         phone,

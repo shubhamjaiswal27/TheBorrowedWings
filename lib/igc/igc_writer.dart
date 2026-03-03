@@ -6,8 +6,10 @@ import '../models/flight.dart';
 import '../models/flight_fix.dart';
 import '../models/glider.dart';
 import '../models/pilot.dart';
-import '../db/flight_dao.dart';
-import '../db/pilot_dao.dart';
+import '../repositories/flight_repository.dart';
+import '../repositories/pilot_repository.dart';
+import '../repositories/glider_repository.dart';
+import '../services/auth_service.dart';
 import 'igc_utils.dart';
 
 /// Result of IGC export operation
@@ -45,43 +47,58 @@ class IgcExportResult {
 /// Generates IGC files with proper headers, GPS fixes, and metadata
 /// according to IGC specification for flight data exchange.
 class IgcWriter {
-  final FlightDao _flightDao;
-  final PilotDao _pilotDao;
+  final FlightRepository _flightRepository;
+  final PilotRepository _pilotRepository;
+  final GliderRepository _gliderRepository;
+  final AuthService _authService;
   final String? _testOutputDir; // For testing purposes
 
   IgcWriter({
-    FlightDao? flightDao,
-    PilotDao? pilotDao,
+    FlightRepository? flightRepository,
+    PilotRepository? pilotRepository,
+    GliderRepository? gliderRepository,
+    AuthService? authService,
     String? testOutputDir,
-  }) : _flightDao = flightDao ?? FlightDao(),
-       _pilotDao = pilotDao ?? PilotDao(),
+  }) : _flightRepository = flightRepository ?? FlightRepository(),
+       _pilotRepository = pilotRepository ?? PilotRepository(),
+       _gliderRepository = gliderRepository ?? GliderRepository(),
+       _authService = authService ?? AuthService(),
        _testOutputDir = testOutputDir;
 
   /// Export a complete flight to IGC format
-  Future<IgcExportResult> exportFlight(int flightId) async {
+  Future<IgcExportResult> exportFlight(String flightId) async {
     try {
-      // Get flight with glider information
-      final flightWithGlider = await _flightDao.getFlightWithGlider(flightId);
-      if (flightWithGlider == null) {
+      // Check authentication
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        return IgcExportResult.error('User not authenticated');
+      }
+
+      // Get flight information
+      final flight = await _flightRepository.getFlightById(flightId, userId);
+      if (flight == null) {
         return IgcExportResult.error('Flight not found');
       }
 
-      final flight = flightWithGlider['flight'] as Flight;
-      final glider = flightWithGlider['glider'] as Glider;
+      // Get glider information
+      final glider = await _gliderRepository.getGliderById(flight.gliderId, userId);
+      if (glider == null) {
+        return IgcExportResult.error('Glider not found');
+      }
 
       // Get pilot information
-      final pilot = await _pilotDao.getProfile();
+      final pilot = await _pilotRepository.getPilotByUserId(userId);
 
       // Get flight fixes (only between takeoff and landing if available)
       List<FlightFix> fixes;
       if (flight.takeoffAt != null && flight.landedAt != null) {
-        fixes = await _flightDao.getFlightFixesInTimeRange(
+        fixes = await _flightRepository.getFlightFixesInRange(
           flightId,
-          flight.takeoffAt!,
-          flight.landedAt!,
+          flight.takeoffAt!.millisecondsSinceEpoch,
+          flight.landedAt!.millisecondsSinceEpoch,
         );
       } else {
-        fixes = await _flightDao.getFlightFixes(flightId);
+        fixes = await _flightRepository.getFlightFixesByFlightId(flightId);
       }
 
       if (fixes.isEmpty) {
@@ -95,7 +112,8 @@ class IgcWriter {
       final filePath = await _writeIgcFile(flight, glider, igcContent);
 
       // Update flight record with IGC path
-      await _flightDao.updateFlightIgcPath(flightId, filePath);
+      final updatedFlight = flight.copyWith(igcPath: filePath);
+      await _flightRepository.updateFlight(updatedFlight, userId);
 
       return IgcExportResult.success(filePath, fixes.length);
     } catch (e) {
@@ -129,7 +147,7 @@ class IgcWriter {
       glider.model,
     ));
 
-    lines.add(IgcUtils.generateGliderIdHeader(glider.gliderId));
+    lines.add(IgcUtils.generateGliderIdHeader(glider.serialNumber ?? ''));
     lines.add(IgcUtils.generateGpsDatumHeader());
     lines.add(IgcUtils.generateFirmwareHeader());
 
@@ -200,7 +218,7 @@ class IgcWriter {
   }
 
   /// Export flight and return file for sharing
-  Future<File?> exportFlightForSharing(int flightId) async {
+  Future<File?> exportFlightForSharing(String flightId) async {
     final result = await exportFlight(flightId);
     if (result.success && result.filePath != null) {
       return File(result.filePath!);
@@ -209,13 +227,16 @@ class IgcWriter {
   }
 
   /// Get IGC file path for existing export
-  Future<String?> getExistingIgcPath(int flightId) async {
-    final flight = await _flightDao.getFlightById(flightId);
+  Future<String?> getExistingIgcPath(String flightId) async {
+    final userId = _authService.currentUserId;
+    if (userId == null) return null;
+    
+    final flight = await _flightRepository.getFlightById(flightId, userId);
     return flight?.igcPath;
   }
 
   /// Check if IGC file exists for flight
-  Future<bool> hasIgcExport(int flightId) async {
+  Future<bool> hasIgcExport(String flightId) async {
     final igcPath = await getExistingIgcPath(flightId);
     if (igcPath == null) return false;
     
@@ -224,8 +245,11 @@ class IgcWriter {
   }
 
   /// Delete IGC export file
-  Future<bool> deleteIgcExport(int flightId) async {
+  Future<bool> deleteIgcExport(String flightId) async {
     try {
+      final userId = _authService.currentUserId;
+      if (userId == null) return false;
+      
       final igcPath = await getExistingIgcPath(flightId);
       if (igcPath == null) return true;
       
@@ -235,7 +259,11 @@ class IgcWriter {
       }
       
       // Clear IGC path from database
-      await _flightDao.updateFlightIgcPath(flightId, '');
+      final flight = await _flightRepository.getFlightById(flightId, userId);
+      if (flight != null) {
+        final updatedFlight = flight.copyWith(igcPath: '');
+        await _flightRepository.updateFlight(updatedFlight, userId);
+      }
       return true;
     } catch (e) {
       return false;

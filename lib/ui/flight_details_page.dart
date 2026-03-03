@@ -3,7 +3,8 @@ import 'package:share_plus/share_plus.dart';
 import '../models/flight.dart';
 import '../models/flight_fix.dart';
 import '../models/glider.dart';
-import '../db/flight_dao.dart';
+import '../repositories/flight_repository.dart';
+import '../services/auth_service.dart';
 import '../igc/igc_writer.dart';
 
 /// Detailed view of a specific flight with summary and GPS fix preview.
@@ -22,7 +23,8 @@ class FlightDetailsPage extends StatefulWidget {
 }
 
 class _FlightDetailsPageState extends State<FlightDetailsPage> {
-  final FlightDao _flightDao = FlightDao();
+  final FlightRepository _flightRepository = FlightRepository();
+  final AuthService _authService = AuthService();
   final IgcWriter _igcWriter = IgcWriter();
   
   List<FlightFix> _firstFixes = [];
@@ -41,13 +43,25 @@ class _FlightDetailsPageState extends State<FlightDetailsPage> {
     });
 
     try {
-      final firstFixes = await _flightDao.getFlightFixesPreview(widget.flight.id!, limit: 5);
-      final lastFixes = await _flightDao.getFlightFixesLast(widget.flight.id!, limit: 5);
+      // Check authentication
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Get all flight fixes
+      final allFixes = await _flightRepository.getFlightFixesByFlightId(widget.flight.id!);
       
       if (mounted) {
         setState(() {
-          _firstFixes = firstFixes;
-          _lastFixes = lastFixes;
+          // Take first 5 fixes
+          _firstFixes = allFixes.take(5).toList();
+          // Take last 5 fixes (but maintain chronological order)
+          if (allFixes.length > 5) {
+            _lastFixes = allFixes.skip(allFixes.length - 5).toList();
+          } else {
+            _lastFixes = [];
+          }
           _isLoading = false;
         });
       }
@@ -63,6 +77,13 @@ class _FlightDetailsPageState extends State<FlightDetailsPage> {
 
   Future<void> _exportFlight() async {
     try {
+      // Check authentication
+      final userId = _authService.currentUserId;
+      if (userId == null) {
+        _showErrorSnackBar('User not authenticated');
+        return;
+      }
+
       _showLoadingSnackBar('Exporting flight...');
       
       final result = await _igcWriter.exportFlight(widget.flight.id!);
@@ -182,8 +203,8 @@ class _FlightDetailsPageState extends State<FlightDetailsPage> {
             _buildSummaryRow('Model', widget.glider.displayName),
             if (widget.glider.wingClass != null)
               _buildSummaryRow('Class', widget.glider.wingClass!),
-            if (widget.glider.gliderId != null)
-              _buildSummaryRow('Registration', widget.glider.gliderId!),
+            if (widget.glider.serialNumber != null)
+              _buildSummaryRow('Registration', widget.glider.serialNumber!),
           ],
         ),
       ),

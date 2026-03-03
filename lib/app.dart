@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'ui/auth_gate.dart';
 import 'ui/home_recording_page.dart';
 import 'ui/flights_list_page.dart';
 import 'ui/pilot_profile_page.dart';
 
 /// Main application widget for ParaglidingLog.
 /// 
-/// Integrates flight recording with existing pilot profile functionality
+/// Integrates authentication with flight recording and existing pilot profile functionality
 /// using a modern Material 3 design and proper navigation structure.
 class ParaglidingLogApp extends StatelessWidget {
   const ParaglidingLogApp({super.key});
@@ -13,7 +14,7 @@ class ParaglidingLogApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'ParaglidingLog',
+      title: 'The Borrowed Wings',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF2196F3), // Sky blue theme
@@ -21,7 +22,7 @@ class ParaglidingLogApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const MainNavigationWrapper(),
+      home: const AuthGate(), // Use AuthGate to handle authentication routing
       routes: {
         '/flights': (context) => const FlightsListPage(),
         '/pilot': (context) => const PilotProfilePage(),
@@ -31,6 +32,7 @@ class ParaglidingLogApp extends StatelessWidget {
 }
 
 /// Main navigation wrapper that provides bottom navigation between key app features.
+/// This is shown after successful authentication and profile completion.
 class MainNavigationWrapper extends StatefulWidget {
   const MainNavigationWrapper({super.key});
 
