@@ -4,8 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SupabaseConfig {
   // TODO: Replace these with your actual Supabase project URL and anon key
   // You can find these in your Supabase project settings
-  static const String supabaseUrl = 'https://your-project-ref.supabase.co';
-  static const String supabaseAnonKey = 'your-anon-key';
+  static const String supabaseUrl = 'https://isscsztqejzndcojshiz.supabase.co';
+  static const String supabaseAnonKey = 'sb_publishable_LsSP4yHlSiFZHhUjoEq_jQ_bSLQCJ3R';
 
   /// Initialize Supabase - call this in main() before runApp()
   static Future<void> initialize() async {
