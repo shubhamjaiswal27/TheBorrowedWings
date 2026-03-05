@@ -6,6 +6,7 @@ import '../repositories/flight_repository.dart';
 import '../services/auth_service.dart';
 import '../igc/igc_writer.dart';
 import 'flight_details_page.dart';
+import '../app.dart';
 
 /// Page displaying list of recorded flights with options to view, export, and manage.
 class FlightsListPage extends StatefulWidget {
@@ -191,7 +192,15 @@ class _FlightsListPageState extends State<FlightsListPage> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                // Navigate to main app with home tab selected
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (context) => const MainNavigationWrapper(),
+                  ),
+                  (route) => false,
+                );
+              },
               icon: const Icon(Icons.home),
               label: const Text('Go to Home'),
             ),

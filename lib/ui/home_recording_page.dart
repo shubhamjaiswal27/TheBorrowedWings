@@ -162,15 +162,6 @@ class _HomeRecordingPageState extends State<HomeRecordingPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ParaglidingLog'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.list),
-            onPressed: () {
-              Navigator.pushNamed(context, '/flights');
-            },
-            tooltip: 'View Flights',
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/pilot.dart';
 import '../repositories/pilot_repository.dart';
 import '../services/auth_service.dart';
+import '../app.dart';
 
 /// Pilot Profile page with view/edit modes, logout functionality, and form validation.
 /// 
@@ -81,12 +82,18 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
       }
 
       final pilot = await _pilotRepository.getPilotByUserId(userId);
+      final user = _authService.currentUser;
       setState(() {
         _currentPilot = pilot;
         _isLoading = false;
         if (pilot != null) {
           _populateControllers(pilot);
+        } else {
+          // No existing profile - populate with user's auth data as defaults
+          _fullNameController.text = user?.userMetadata?['full_name'] ?? '';
         }
+        // Always use the authenticated user's email, never the stored profile email
+        _emailController.text = user?.email ?? '';
         // Keep the initial edit mode state from widget parameter
       });
     } catch (e) {
@@ -99,7 +106,7 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
 
   void _populateControllers(Pilot pilot) {
     _fullNameController.text = pilot.fullName;
-    _emailController.text = pilot.email ?? '';
+    // Email is always populated from auth user, not from pilot profile
     _phoneController.text = pilot.phone ?? '';
     _nationalityController.text = pilot.nationality ?? '';
     _licenseIdController.text = pilot.licenseId ?? '';
@@ -112,12 +119,6 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
       return;
     }
 
-    // Ensure we have a valid profile to update (should always be true for logged-in users)
-    if (_currentPilot == null) {
-      _showErrorSnackBar('Profile not found. Please logout and try again.');
-      return;
-    }
-
     try {
       final userId = _authService.currentUserId;
       if (userId == null) {
@@ -125,25 +126,59 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
         return;
       }
 
-      // Since profiles are auto-created during signup, we should only update existing profiles
-      final pilot = _currentPilot!.copyWith(
-        fullName: _fullNameController.text.trim(),
-        email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-        phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-        nationality: _nationalityController.text.trim().isEmpty ? null : _nationalityController.text.trim(),
-        licenseId: _licenseIdController.text.trim().isEmpty ? null : _licenseIdController.text.trim(),
-        emergencyContactName: _emergencyContactNameController.text.trim().isEmpty ? null : _emergencyContactNameController.text.trim(),
-        emergencyContactPhone: _emergencyContactPhoneController.text.trim().isEmpty ? null : _emergencyContactPhoneController.text.trim(),
-      );
+      if (_currentPilot == null) {
+        // No existing profile - create a new one
+        final pilot = Pilot.create(
+          userId: userId,
+          fullName: _fullNameController.text.trim(),
+          email: _authService.currentUser?.email, // Always use auth user's email
+        ).copyWith(
+          phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+          nationality: _nationalityController.text.trim().isEmpty ? null : _nationalityController.text.trim(),
+          licenseId: _licenseIdController.text.trim().isEmpty ? null : _licenseIdController.text.trim(),
+          emergencyContactName: _emergencyContactNameController.text.trim().isEmpty ? null : _emergencyContactNameController.text.trim(),
+          emergencyContactPhone: _emergencyContactPhoneController.text.trim().isEmpty ? null : _emergencyContactPhoneController.text.trim(),
+        );
 
-      final savedPilot = await _pilotRepository.updatePilotByUserId(userId, pilot);
+        final savedPilot = await _pilotRepository.createPilot(pilot);
+        setState(() {
+          _currentPilot = savedPilot;
+          _isEditMode = false;
+        });
+        _showSuccessSnackBar('Profile created successfully!');
+        
+        // Navigate to main app after successful profile creation
+        if (mounted) {
+          _navigateToHome();
+        }
+      } else {
+        // Update existing profile
+        final pilot = _currentPilot!.copyWith(
+          fullName: _fullNameController.text.trim(),
+          email: _authService.currentUser?.email, // Always use auth user's email
+          phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+          nationality: _nationalityController.text.trim().isEmpty ? null : _nationalityController.text.trim(),
+          licenseId: _licenseIdController.text.trim().isEmpty ? null : _licenseIdController.text.trim(),
+          emergencyContactName: _emergencyContactNameController.text.trim().isEmpty ? null : _emergencyContactNameController.text.trim(),
+          emergencyContactPhone: _emergencyContactPhoneController.text.trim().isEmpty ? null : _emergencyContactPhoneController.text.trim(),
+        );
 
-      setState(() {
-        _currentPilot = savedPilot;
-        _isEditMode = false;
-      });
-
-      _showSuccessSnackBar('Profile updated successfully!');
+        final savedPilot = await _pilotRepository.updatePilotByUserId(userId, pilot);
+        setState(() {
+          _currentPilot = savedPilot;
+          _isEditMode = false;
+        });
+        _showSuccessSnackBar('Profile updated successfully!');
+        
+        // If this was accessed from a profile creation flow, navigate to main app
+        if (mounted && widget.startInEditMode && _currentPilot != null) {
+          // Small delay to let user see the success message
+          await Future.delayed(const Duration(milliseconds: 1500));
+          if (mounted) {
+            _navigateToHome();
+          }
+        }
+      }
     } catch (e) {
       _showErrorSnackBar('Failed to save profile: $e');
     }
@@ -182,11 +217,27 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
     if (confirmed == true) {
       try {
         await _authService.signOut();
-        // Navigation will be handled by AuthGate listening to auth state changes
+        // Force navigation to login by replacing entire navigation stack
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const ParaglidingLogApp()),
+            (route) => false,
+          );
+        }
       } catch (e) {
         _showErrorSnackBar('Failed to logout: $e');
       }
     }
+  }
+
+  /// Navigate to main app home page
+  void _navigateToHome() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => const MainNavigationWrapper(),
+      ),
+      (route) => false,
+    );
   }
 
   void _showSuccessSnackBar(String message) {
@@ -214,6 +265,13 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
         title: const Text('Pilot Profile'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         actions: [
+          // Home button (only visible if profile exists)
+          if (_currentPilot != null)
+            IconButton(
+              icon: const Icon(Icons.home),
+              onPressed: _navigateToHome,
+              tooltip: 'Home',
+            ),
           // Logout button (always visible)
           IconButton(
             icon: const Icon(Icons.logout),
@@ -307,7 +365,7 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
             'Personal Information',
             [
               _buildViewField('Full Name', pilot.fullName),
-              if (pilot.email != null) _buildViewField('Email', pilot.email!),
+              _buildViewField('Email', _authService.currentUser?.email ?? 'No email'),
               if (pilot.phone != null) _buildViewField('Phone', pilot.phone!),
               if (pilot.nationality != null) _buildViewField('Nationality', pilot.nationality!),
             ],
@@ -468,8 +526,10 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
                 labelText: 'Email',
                 border: OutlineInputBorder(),
                 hintText: 'pilot@example.com',
+                suffixIcon: Icon(Icons.lock, size: 16),
               ),
               keyboardType: TextInputType.emailAddress,
+              enabled: false, // Make email field read-only
               validator: (value) {
                 if (!Pilot.isValidEmail(value)) {
                   return 'Please enter a valid email address';

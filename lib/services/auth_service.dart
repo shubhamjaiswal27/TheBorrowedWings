@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
+import 'recording_controller.dart';
+import 'location_service.dart';
 
 /// Result class for authentication operations
 class AuthResult {
@@ -86,10 +88,22 @@ class AuthService {
 
   /// Sign out current user
   Future<AuthResult> signOut() async {
-    try {      
+    try {
+      print('AuthService: Starting sign out process');
+      
+      // Clear app state before signing out
+      await _clearAppState();
+      
+      // Sign out from Supabase
       await _client.auth.signOut();
-      return AuthResult.success(currentUser!);
+      print('AuthService: Sign out completed');
+      
+      // Force a small delay to ensure state propagation
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      return AuthResult.success(User(id: '', appMetadata: {}, userMetadata: {}, aud: '', createdAt: DateTime.now().toIso8601String()));
     } catch (e) {
+      print('AuthService: Sign out failed: $e');
       return AuthResult.error('Failed to sign out: ${e.toString()}');
     }
   }
@@ -141,6 +155,25 @@ class AuthService {
       }
     } catch (e) {
       return AuthResult.error(_parseAuthError(e.toString()));
+    }
+  }
+
+  /// Clear all app state (repositories, services, caches)
+  Future<void> _clearAppState() async {
+    try {
+      print('AuthService: Clearing app state');
+      
+      // Clear services
+      final recordingController = RecordingController();
+      await recordingController.clearState();
+      
+      final locationService = LocationService();
+      await locationService.clearState();
+      
+      print('AuthService: App state cleared successfully');
+    } catch (e) {
+      print('AuthService: Failed to clear app state: $e');
+      // Don't throw - continue with logout even if state clearing fails
     }
   }
 

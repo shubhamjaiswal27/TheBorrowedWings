@@ -73,7 +73,7 @@ class _AuthGateState extends State<AuthGate> {
       
       if (pilot == null) {
         print('AuthGate: No pilot profile found, redirecting to profile page in edit mode');
-        // Profile doesn't exist -> This shouldn't happen with auto-creation, but handle gracefully
+        // Profile doesn't exist -> Redirect to profile page for manual creation
         return const PilotProfilePage(startInEditMode: true);
       } else {
         print('AuthGate: Pilot profile found, showing main navigation');

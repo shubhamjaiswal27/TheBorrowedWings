@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
-import '../../repositories/pilot_repository.dart';
-import '../../models/pilot.dart';
 import '../../app.dart';
-import '../pilot_profile_page.dart';
 
 /// Login screen for existing users
 class LoginPage extends StatefulWidget {
@@ -242,7 +239,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final _confirmPasswordController = TextEditingController();
   
   final _authService = AuthService();
-  final _pilotRepository = PilotRepository();
   
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -275,41 +271,15 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       if (result.success) {
-        // Auto-create pilot profile immediately after signup
-        final userId = result.user?.id;
-        if (userId != null) {
-          final pilot = Pilot.create(
-            userId: userId,
-            fullName: _fullNameController.text.trim(),
-            email: _emailController.text.trim(),
+        // Navigate directly to main app - AuthGate will handle profile check
+        if (mounted) {
+          // The AuthGate will handle profile existence check and navigation
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => const MainNavigationWrapper(),
+            ),
+            (route) => false,
           );
-          
-          try {
-            await _pilotRepository.createPilot(pilot);
-            print('Auto-created pilot profile for user: $userId');
-            
-            // Only check mounted before navigation operations
-            if (mounted) {
-              // Navigate directly to main app
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (context) => const MainNavigationWrapper(),
-                ),
-                (route) => false,
-              );
-            }
-          } catch (profileError) {
-            print('Failed to auto-create profile: $profileError');
-            // Only check mounted before navigation operations
-            if (mounted) {
-              // Fallback to profile page in edit mode
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const PilotProfilePage(startInEditMode: true),
-                ),
-              );
-            }
-          }
         }
       } else {
         setState(() {

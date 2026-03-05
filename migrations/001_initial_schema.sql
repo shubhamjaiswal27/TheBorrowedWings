@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS public.gliders (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   manufacturer TEXT,
   model TEXT NOT NULL,
-  glider_id TEXT, -- Registration or serial number
+  serial_number TEXT, -- Registration or serial number
   wing_class TEXT,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL

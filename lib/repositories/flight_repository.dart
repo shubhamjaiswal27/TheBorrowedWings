@@ -56,7 +56,7 @@ class FlightRepository {
           .from(_flightTableName)
           .select('''
             *,
-            gliders!inner(manufacturer, model, glider_id, wing_class)
+            gliders!inner(manufacturer, model, serial_number, wing_class)
           ''')
           .eq('user_id', userId)
           .order('started_at', ascending: false);
@@ -74,7 +74,7 @@ class FlightRepository {
           'flight': flight,
           'glider_manufacturer': gliderData['manufacturer'],
           'glider_model': gliderData['model'], 
-          'glider_id': gliderData['glider_id'],
+          'glider_serial_number': gliderData['serial_number'],
           'glider_wing_class': gliderData['wing_class'],
         };
       }).toList();

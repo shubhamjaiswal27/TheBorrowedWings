@@ -325,23 +325,53 @@ class _GliderDialogState extends State<_GliderDialog> {
       return;
     }
 
-    // Check authentication
-    final userId = _authService.currentUserId;
-    if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('User not authenticated'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
 
     try {
+      // Check authentication with better error reporting and retry logic
+      String? userId = _authService.currentUserId;
+      
+      // If authentication check fails, wait a moment and try again
+      if (userId == null) {
+        print('First auth check failed, waiting and retrying...');
+        await Future.delayed(const Duration(milliseconds: 500));
+        userId = _authService.currentUserId;
+      }
+      
+      final currentUser = _authService.currentUser;
+      
+      if (currentUser == null || userId == null) {
+        print('Authentication check failed:');
+        print('- Current user: $currentUser');
+        print('- User ID: $userId');
+        print('- Is authenticated: ${_authService.isAuthenticated}');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Authentication error. Please try logging out and back in.'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 7),
+              action: SnackBarAction(
+                label: 'Logout',
+                textColor: Colors.white,
+                onPressed: () async {
+                  try {
+                    await _authService.signOut();
+                  } catch (e) {
+                    print('Logout error: $e');
+                  }
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      
+      print('Creating glider for user: $userId');
       final glider = Glider.create(
         userId: userId,
         manufacturer: _manufacturerController.text.trim().isEmpty 
@@ -361,27 +391,47 @@ class _GliderDialogState extends State<_GliderDialog> {
 
       if (widget.glider == null) {
         // Create new glider
+        print('Calling createGlider...');
         await _gliderRepository.createGlider(glider);
+        print('Glider created successfully');
       } else {
         // Update existing glider
+        print('Calling updateGlider...');
         final updatedGlider = glider.copyWith(id: widget.glider!.id);
         await _gliderRepository.updateGlider(updatedGlider, userId);
+        print('Glider updated successfully');
       }
 
       if (mounted) {
         Navigator.pop(context, true);
       }
     } catch (e) {
+      print('Error saving glider: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
+        
+        String errorMessage = 'Failed to save glider';
+        if (e.toString().contains('not authenticated') || e.toString().contains('JWT')) {
+          errorMessage = 'Authentication expired. Please logout and login again.';
+        } else {
+          errorMessage = 'Failed to save glider: $e';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save glider: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
