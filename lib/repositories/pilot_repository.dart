@@ -123,19 +123,7 @@ class PilotRepository {
       throw Exception('Failed to delete pilot profile: ${e.toString()}');
     }
   }
-
-  /// Deletes a pilot profile by user ID
-  Future<void> deletePilotByUserId(String userId) async {
-    try {
-      await _client
-          .from(_tableName)
-          .delete()
-          .eq('user_id', userId);
-    } catch (e) {
-      throw Exception('Failed to delete pilot profile by user ID: ${e.toString()}');
-    }
-  }
-
+  
   /// Gets all pilot profiles (admin function, not typically needed)
   Future<List<Pilot>> getAllPilots() async {
     try {

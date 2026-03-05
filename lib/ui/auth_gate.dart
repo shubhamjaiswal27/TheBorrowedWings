@@ -20,6 +20,9 @@ class _AuthGateState extends State<AuthGate> {
   
   bool _isLoading = true;
   String? _error;
+  
+  // Key to force refresh of screen determination
+  int _refreshKey = 0;
 
   @override
   void initState() {
@@ -43,13 +46,24 @@ class _AuthGateState extends State<AuthGate> {
       });
     }
   }
+  
+  /// Force refresh of screen determination (useful after profile completion)
+  void _refreshScreenDetermination() {
+    if (mounted) {
+      setState(() {
+        _refreshKey++;
+      });
+    }
+  }
 
   /// Determine which screen to show based on auth state and profile status
   Future<Widget> _determineScreen() async {
     final user = _authService.currentUser;
+    print('AuthGate: Determining screen for user: ${user?.id}');
     
     // Not authenticated -> Login flow
     if (user == null) {
+      print('AuthGate: No user, showing login page');
       return const LoginPage();
     }
     
@@ -58,15 +72,18 @@ class _AuthGateState extends State<AuthGate> {
       final pilot = await _pilotRepository.getPilotByUserId(user.id);
       
       if (pilot == null) {
+        print('AuthGate: No pilot profile found, showing complete profile page');
         // Profile doesn't exist -> Complete profile
         return CompleteProfilePage(
           fullName: user.userMetadata?['full_name'] as String?,
         );
       } else {
+        print('AuthGate: Pilot profile found, showing main navigation');
         // Profile exists -> Main app
         return const MainNavigationWrapper();
       }
     } catch (e) {
+      print('AuthGate: Error checking profile: $e, showing complete profile page');
       // Error checking profile -> Complete profile as fallback
       return CompleteProfilePage(
         fullName: user.userMetadata?['full_name'] as String?,
@@ -141,6 +158,7 @@ class _AuthGateState extends State<AuthGate> {
 
         // Determine which screen to show
         return FutureBuilder<Widget>(
+          key: ValueKey(_refreshKey), // Force rebuild when refresh key changes
           future: _determineScreen(),
           builder: (context, screenSnapshot) {
             if (screenSnapshot.connectionState == ConnectionState.waiting) {
@@ -180,6 +198,7 @@ class _AuthGateState extends State<AuthGate> {
                       FilledButton(
                         onPressed: () {
                           setState(() {});
+                          _refreshScreenDetermination();
                         },
                         child: const Text('Retry'),
                       ),

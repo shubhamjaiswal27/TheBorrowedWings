@@ -161,31 +161,6 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
     }
   }
 
-  Future<void> _deleteProfile() async {
-    if (_currentPilot == null) return;
-
-    final confirmed = await _showDeleteConfirmationDialog();
-    if (!confirmed) return;
-
-    try {
-      final userId = _authService.currentUserId;
-      if (userId == null) {
-        _showErrorSnackBar('User not authenticated');
-        return;
-      }
-
-      await _pilotRepository.deletePilotByUserId(userId);
-      setState(() {
-        _currentPilot = null;
-        _isEditMode = true;
-      });
-      _clearControllers();
-      _showSuccessSnackBar('Profile deleted successfully!');
-    } catch (e) {
-      _showErrorSnackBar('Failed to delete profile: $e');
-    }
-  }
-
   void _toggleEditMode() {
     setState(() {
       if (_isEditMode && _currentPilot != null) {
@@ -278,13 +253,6 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
             onPressed: _handleLogout,
             tooltip: 'Logout',
           ),
-          // Delete button (only visible when profile exists and not in edit mode)
-          if (_currentPilot != null && !_isEditMode)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _deleteProfile,
-              tooltip: 'Delete Profile',
-            ),
         ],
       ),
       body: _isLoading
