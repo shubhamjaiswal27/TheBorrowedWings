@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:location/location.dart';
 import 'package:the_borrowed_wings/services/takeoff_landing_detector.dart';
-import 'package:the_borrowed_wings/models/flight_fix.dart';
 
 void main() {
   group('TakeoffLandingDetector', () {
@@ -291,37 +290,3 @@ void _triggerTakeoff(TakeoffLandingDetector detector) {
   }
 }
 
-/// Helper function to trigger landing detection
-void _triggerLanding(TakeoffLandingDetector detector) {
-  // Use a fixed location and timestamp that's well separated from any previous fixes
-  final landingTime = DateTime.now();
-  final landingLat = 45.0;
-  final landingLon = 8.0;
-  
-  // Add 25 seconds of perfectly stationary fixes to ensure reliable detection
-  for (int i = 1; i <= 25; i++) {
-    final locationData = _createLocationData(
-      latitude: landingLat, // Exact same position every time
-      longitude: landingLon, // Exact same position every time
-      speed: 0.0, // Zero speed
-      timestamp: landingTime.add(Duration(seconds: i)),
-    );
-
-    final result = detector.processLocationUpdate(locationData, i + 5000);
-    if (result.hasLanding) {
-      // Landing detected, add a couple more fixes for stability
-      for (int j = 1; j <= 3; j++) {
-        detector.processLocationUpdate(
-          _createLocationData(
-            latitude: landingLat,
-            longitude: landingLon,
-            speed: 0.0,
-            timestamp: landingTime.add(Duration(seconds: i + j)),
-          ),
-          i + 5000 + j,
-        );
-      }
-      return;
-    }
-  }
-}

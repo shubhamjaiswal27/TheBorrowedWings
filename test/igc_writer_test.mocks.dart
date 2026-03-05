@@ -288,15 +288,6 @@ class MockPilotRepository extends _i1.Mock implements _i9.PilotRepository {
           as _i8.Future<void>);
 
   @override
-  _i8.Future<void> deletePilotByUserId(String? userId) =>
-      (super.noSuchMethod(
-            Invocation.method(#deletePilotByUserId, [userId]),
-            returnValue: _i8.Future<void>.value(),
-            returnValueForMissingStub: _i8.Future<void>.value(),
-          )
-          as _i8.Future<void>);
-
-  @override
   _i8.Future<List<_i4.Pilot>> getAllPilots() =>
       (super.noSuchMethod(
             Invocation.method(#getAllPilots, []),

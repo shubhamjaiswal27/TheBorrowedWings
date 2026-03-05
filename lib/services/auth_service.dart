@@ -1,10 +1,6 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
-import '../repositories/pilot_repository.dart';
-import '../repositories/flight_repository.dart';
-import '../repositories/glider_repository.dart';
-import 'location_service.dart';
 
 /// Result class for authentication operations
 class AuthResult {
@@ -41,29 +37,6 @@ class AuthService {
   
   /// Current user ID (null if not authenticated)
   String? get currentUserId => currentUser?.id;
-
-  /// Clear all app state and repositories on logout
-  Future<void> _clearAppState() async {
-    try {
-      // Clear all repository caches
-      final pilotRepo = PilotRepository();
-      final flightRepo = FlightRepository();
-      final gliderRepo = GliderRepository();
-      
-      pilotRepo.clearCache();
-      flightRepo.clearCache();
-      gliderRepo.clearCache();
-      
-      // Clear location service state
-      final locationService = LocationService();
-      await locationService.clearState();
-      
-      print('All app state cleared on logout');
-    } catch (e) {
-      print('Error clearing app state: $e');
-      // Don't throw error to not block logout process
-    }
-  }
 
   /// Sign up with email and password
   Future<AuthResult> signUp({
@@ -113,10 +86,7 @@ class AuthService {
 
   /// Sign out current user
   Future<AuthResult> signOut() async {
-    try {
-      // Clear all app state before signing out
-      await _clearAppState();
-      
+    try {      
       await _client.auth.signOut();
       return AuthResult.success(currentUser!);
     } catch (e) {

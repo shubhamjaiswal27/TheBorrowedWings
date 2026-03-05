@@ -11,16 +11,6 @@ class GliderRepository {
   final SupabaseClient _client = SupabaseConfig.client;
   static const String _tableName = 'gliders';
 
-  // Cache for glider data
-  List<Glider>? _cachedGliders;
-  String? _cachedPilotId;
-
-  /// Clear all cached data and reset repository state
-  void clearCache() {
-    _cachedGliders = null;
-    _cachedPilotId = null;
-  }
-
   /// Creates a new glider
   Future<Glider> createGlider(Glider glider) async {
     if (!glider.isValid) {

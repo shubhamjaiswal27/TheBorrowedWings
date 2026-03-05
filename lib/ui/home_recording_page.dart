@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:location/location.dart';
 import '../models/glider.dart';
 import '../services/recording_controller.dart';
 import '../services/location_service.dart';

@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../repositories/pilot_repository.dart';
 import 'auth/login_page.dart';
-import 'auth/complete_profile_page.dart';
+import 'pilot_profile_page.dart';
 import '../app.dart';
 
 /// AuthGate manages routing based on authentication state and profile completion status
@@ -72,22 +72,18 @@ class _AuthGateState extends State<AuthGate> {
       final pilot = await _pilotRepository.getPilotByUserId(user.id);
       
       if (pilot == null) {
-        print('AuthGate: No pilot profile found, showing complete profile page');
-        // Profile doesn't exist -> Complete profile
-        return CompleteProfilePage(
-          fullName: user.userMetadata?['full_name'] as String?,
-        );
+        print('AuthGate: No pilot profile found, redirecting to profile page in edit mode');
+        // Profile doesn't exist -> This shouldn't happen with auto-creation, but handle gracefully
+        return const PilotProfilePage(startInEditMode: true);
       } else {
         print('AuthGate: Pilot profile found, showing main navigation');
         // Profile exists -> Main app
         return const MainNavigationWrapper();
       }
     } catch (e) {
-      print('AuthGate: Error checking profile: $e, showing complete profile page');
-      // Error checking profile -> Complete profile as fallback
-      return CompleteProfilePage(
-        fullName: user.userMetadata?['full_name'] as String?,
-      );
+      print('AuthGate: Error checking profile: $e, redirecting to profile page in edit mode');
+      // Error checking profile -> Profile page in edit mode as fallback
+      return const PilotProfilePage(startInEditMode: true);
     }
   }
 

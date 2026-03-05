@@ -13,7 +13,9 @@ import '../services/auth_service.dart';
 /// - Persists data to Supabase database
 /// - Requires authentication (user must be logged in)
 class PilotProfilePage extends StatefulWidget {
-  const PilotProfilePage({super.key});
+  final bool startInEditMode;
+  
+  const PilotProfilePage({super.key, this.startInEditMode = false});
 
   @override
   State<PilotProfilePage> createState() => _PilotProfilePageState();
@@ -41,6 +43,7 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
   void initState() {
     super.initState();
     _initializeControllers();
+    _isEditMode = widget.startInEditMode; // Start in edit mode if requested
     _loadPilotProfile();
   }
 
@@ -81,11 +84,10 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
       setState(() {
         _currentPilot = pilot;
         _isLoading = false;
-        if (pilot == null) {
-          _isEditMode = true; // Start in edit mode if no profile exists
-        } else {
+        if (pilot != null) {
           _populateControllers(pilot);
         }
+        // Keep the initial edit mode state from widget parameter
       });
     } catch (e) {
       setState(() {
@@ -105,18 +107,14 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
     _emergencyContactPhoneController.text = pilot.emergencyContactPhone ?? '';
   }
 
-  void _clearControllers() {
-    _fullNameController.clear();
-    _emailController.clear();
-    _phoneController.clear();
-    _nationalityController.clear();
-    _licenseIdController.clear();
-    _emergencyContactNameController.clear();
-    _emergencyContactPhoneController.clear();
-  }
-
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    // Ensure we have a valid profile to update (should always be true for logged-in users)
+    if (_currentPilot == null) {
+      _showErrorSnackBar('Profile not found. Please logout and try again.');
       return;
     }
 
@@ -127,16 +125,8 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
         return;
       }
 
-      final pilot = _currentPilot?.copyWith(
-        fullName: _fullNameController.text.trim(),
-        email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-        phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-        nationality: _nationalityController.text.trim().isEmpty ? null : _nationalityController.text.trim(),
-        licenseId: _licenseIdController.text.trim().isEmpty ? null : _licenseIdController.text.trim(),
-        emergencyContactName: _emergencyContactNameController.text.trim().isEmpty ? null : _emergencyContactNameController.text.trim(),
-        emergencyContactPhone: _emergencyContactPhoneController.text.trim().isEmpty ? null : _emergencyContactPhoneController.text.trim(),
-      ) ?? Pilot.create(
-        userId: userId,
+      // Since profiles are auto-created during signup, we should only update existing profiles
+      final pilot = _currentPilot!.copyWith(
         fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
         phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
@@ -146,16 +136,14 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
         emergencyContactPhone: _emergencyContactPhoneController.text.trim().isEmpty ? null : _emergencyContactPhoneController.text.trim(),
       );
 
-      final savedPilot = (_currentPilot != null) 
-          ? await _pilotRepository.updatePilotByUserId(userId, pilot)
-          : await _pilotRepository.createPilot(pilot);
+      final savedPilot = await _pilotRepository.updatePilotByUserId(userId, pilot);
 
       setState(() {
         _currentPilot = savedPilot;
         _isEditMode = false;
       });
 
-      _showSuccessSnackBar(_currentPilot!.id == null ? 'Profile created successfully!' : 'Profile updated successfully!');
+      _showSuccessSnackBar('Profile updated successfully!');
     } catch (e) {
       _showErrorSnackBar('Failed to save profile: $e');
     }
@@ -219,27 +207,6 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
     );
   }
 
-  Future<bool> _showDeleteConfirmationDialog() async {
-    return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Profile'),
-        content: const Text('Are you sure you want to delete your pilot profile? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    ) ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -258,11 +225,11 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _buildBody(),
-      floatingActionButton: _currentPilot != null || _isEditMode
+      floatingActionButton: _currentPilot != null
           ? FloatingActionButton(
               onPressed: _isEditMode ? _saveProfile : _toggleEditMode,
               child: Icon(_isEditMode ? Icons.save : Icons.edit),
-              tooltip: _isEditMode ? 'Save Profile' : 'Edit Profile',
+              tooltip: _isEditMode ? 'Save Changes' : 'Edit Profile',
             )
           : null,
     );
@@ -286,26 +253,26 @@ class _PilotProfilePageState extends State<PilotProfilePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.person_outline,
+              Icons.error_outline,
               size: 120,
-              color: Theme.of(context).colorScheme.outlineVariant,
+              color: Theme.of(context).colorScheme.error,
             ),
             const SizedBox(height: 24),
             Text(
-              'No Pilot Profile',
+              'Profile Not Found',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
             Text(
-              'Create your pilot profile to track your paragliding adventures.',
+              'Your pilot profile could not be found. This may be a system issue. Please try logging out and back in, or contact support if the problem persists.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () => setState(() => _isEditMode = true),
-              icon: const Icon(Icons.add),
-              label: const Text('Create Profile'),
+              onPressed: _handleLogout,
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout and Retry'),
             ),
           ],
         ),

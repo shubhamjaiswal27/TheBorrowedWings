@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
-import 'package:path/path.dart' as path;
 import 'package:the_borrowed_wings/models/flight.dart';
 import 'package:the_borrowed_wings/models/flight_fix.dart';
 import 'package:the_borrowed_wings/models/glider.dart';

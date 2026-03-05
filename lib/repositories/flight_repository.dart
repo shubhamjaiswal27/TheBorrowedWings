@@ -2,7 +2,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/flight.dart';
 import '../models/flight_fix.dart';
-import '../models/glider.dart';
 
 /// Repository for flight operations using Supabase
 class FlightRepository {
@@ -13,16 +12,6 @@ class FlightRepository {
   final SupabaseClient _client = SupabaseConfig.client;
   static const String _flightTableName = 'flights';
   static const String _fixTableName = 'flight_fixes';
-
-  // Cache for flight data
-  List<Flight>? _cachedFlights;
-  String? _cachedPilotId;
-
-  /// Clear all cached data and reset repository state
-  void clearCache() {
-    _cachedFlights = null;
-    _cachedPilotId = null;
-  }
 
   /// Creates a new flight
   Future<Flight> createFlight(Flight flight) async {

@@ -3,7 +3,7 @@ import '../../services/auth_service.dart';
 import '../../repositories/pilot_repository.dart';
 import '../../models/pilot.dart';
 import '../../app.dart';
-import 'complete_profile_page.dart';
+import '../pilot_profile_page.dart';
 
 /// Login screen for existing users
 class LoginPage extends StatefulWidget {
@@ -302,12 +302,10 @@ class _RegisterPageState extends State<RegisterPage> {
             print('Failed to auto-create profile: $profileError');
             // Only check mounted before navigation operations
             if (mounted) {
-              // Fallback to profile completion page
+              // Fallback to profile page in edit mode
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (context) => CompleteProfilePage(
-                    fullName: _fullNameController.text.trim(),
-                  ),
+                  builder: (context) => const PilotProfilePage(startInEditMode: true),
                 ),
               );
             }
