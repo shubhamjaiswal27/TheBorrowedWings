@@ -275,23 +275,21 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       if (result.success) {
-        if (mounted) {
-          // Small delay to allow auth state to propagate  
-          await Future.delayed(const Duration(milliseconds: 200));
+        // Auto-create pilot profile immediately after signup
+        final userId = result.user?.id;
+        if (userId != null) {
+          final pilot = Pilot.create(
+            userId: userId,
+            fullName: _fullNameController.text.trim(),
+            email: _emailController.text.trim(),
+          );
           
-          // Auto-create pilot profile
-          final userId = result.user?.id;
-          if (userId != null) {
-            final pilot = Pilot.create(
-              userId: userId,
-              fullName: _fullNameController.text.trim(),
-              email: _emailController.text.trim(),
-            );
+          try {
+            await _pilotRepository.createPilot(pilot);
+            print('Auto-created pilot profile for user: $userId');
             
-            try {
-              await _pilotRepository.createPilot(pilot);
-              print('Auto-created pilot profile for user: $userId');
-              
+            // Only check mounted before navigation operations
+            if (mounted) {
               // Navigate directly to main app
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
@@ -299,8 +297,11 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 (route) => false,
               );
-            } catch (profileError) {
-              print('Failed to auto-create profile: $profileError');
+            }
+          } catch (profileError) {
+            print('Failed to auto-create profile: $profileError');
+            // Only check mounted before navigation operations
+            if (mounted) {
               // Fallback to profile completion page
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(

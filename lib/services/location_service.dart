@@ -18,6 +18,12 @@ class LocationService {
   bool _isListening = false;
   LocationData? _lastKnownLocation;
 
+  /// Clear all location state and stop tracking
+  Future<void> clearState() async {
+    await stopLocationUpdates();
+    _lastKnownLocation = null;
+  }
+
   /// Stream of location updates
   Stream<LocationData> get locationStream => _locationController.stream;
 

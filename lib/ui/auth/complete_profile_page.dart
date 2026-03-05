@@ -3,6 +3,7 @@ import '../../services/auth_service.dart';
 import '../../repositories/pilot_repository.dart';
 import '../../models/pilot.dart';
 import '../../app.dart';
+import '../auth_gate.dart';
 
 /// Profile update page for existing users to modify their pilot profile
 class CompleteProfilePage extends StatefulWidget {
@@ -161,6 +162,50 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     }
   }
 
+  /// Handle logout and return to login page
+  Future<void> _handleLogout() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Sign out will automatically clear app state
+      final result = await _authService.signOut();
+      
+      if (result.success && mounted) {
+        // Navigate to AuthGate which will detect logout and show login page
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthGate()),
+          (route) => false,
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.error ?? 'Logout failed')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Logout failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Skip profile completion and go to home page
+  void _skipToHome() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const MainNavigationWrapper()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -169,6 +214,38 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       appBar: AppBar(
         title: Text('Update Profile'),
         automaticallyImplyLeading: true,
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              switch (value) {
+                case 'logout':
+                  _handleLogout();
+                  break;
+                case 'skip':
+                  _skipToHome();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'skip',
+                child: ListTile(
+                  leading: Icon(Icons.home),
+                  title: Text('Skip to Home'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: ListTile(
+                  leading: Icon(Icons.logout),
+                  title: Text('Logout'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -403,6 +480,25 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Text('Update Profile'),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Skip to Home button
+                  OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _skipToHome,
+                    icon: const Icon(Icons.home),
+                    label: const Text('Skip and Go to Home'),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Logout button
+                  TextButton.icon(
+                    onPressed: _isLoading ? null : _handleLogout,
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Logout'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.error,
+                    ),
                   ),
                   const SizedBox(height: 24),
                 ],

@@ -11,6 +11,16 @@ class PilotRepository {
   final SupabaseClient _client = SupabaseConfig.client;
   static const String _tableName = 'pilots';
 
+  // Cache for pilot data
+  Pilot? _cachedPilot;
+  String? _cachedUserId;
+
+  /// Clear all cached data and reset repository state
+  void clearCache() {
+    _cachedPilot = null;
+    _cachedUserId = null;
+  }
+
   /// Creates a new pilot profile
   Future<Pilot> createPilot(Pilot pilot) async {
     try {
@@ -123,7 +133,7 @@ class PilotRepository {
       throw Exception('Failed to delete pilot profile: ${e.toString()}');
     }
   }
-  
+
   /// Gets all pilot profiles (admin function, not typically needed)
   Future<List<Pilot>> getAllPilots() async {
     try {

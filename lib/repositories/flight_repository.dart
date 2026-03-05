@@ -14,6 +14,16 @@ class FlightRepository {
   static const String _flightTableName = 'flights';
   static const String _fixTableName = 'flight_fixes';
 
+  // Cache for flight data
+  List<Flight>? _cachedFlights;
+  String? _cachedPilotId;
+
+  /// Clear all cached data and reset repository state
+  void clearCache() {
+    _cachedFlights = null;
+    _cachedPilotId = null;
+  }
+
   /// Creates a new flight
   Future<Flight> createFlight(Flight flight) async {
     try {

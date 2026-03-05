@@ -98,6 +98,31 @@ class RecordingController {
   /// Current flight (if any)
   Flight? get currentFlight => _currentFlight;
 
+  /// Clear all recording state and stop any ongoing recording
+  Future<void> clearState() async {
+    // Stop recording if active
+    if (_state != RecordingState.idle) {
+      await stopRecording();
+    }
+    
+    // Clear all session data
+    _currentFlight = null;
+    _selectedGlider = null;
+    _recordingStartTime = null;
+    _currentFixes.clear();
+    _fixSequenceNumber = 0;
+    _lastLocationData = null;
+    
+    // Cancel timers
+    _statusTimer?.cancel();
+    _statusTimer = null;
+    
+    // Reset state
+    _state = RecordingState.idle;
+    
+    print('Recording controller state cleared');
+  }
+
   /// Selected glider for current session
   Glider? get selectedGlider => _selectedGlider;
 
