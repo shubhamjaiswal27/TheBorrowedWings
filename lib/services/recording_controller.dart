@@ -7,6 +7,7 @@ import '../repositories/flight_repository.dart';
 import '../services/auth_service.dart';
 import 'location_service.dart';
 import 'takeoff_landing_detector.dart';
+import 'barometric_service.dart';
 
 /// Recording state of the flight session
 enum RecordingState {
@@ -73,9 +74,11 @@ class RecordingController {
   final TakeoffLandingDetector _detector;
   final FlightRepository _flightRepository;
   final AuthService _authService;
+  final BarometricService _barometricService;
 
   RecordingState _state = RecordingState.idle;
   StreamSubscription<LocationData>? _locationSubscription;
+  StreamSubscription<int>? _barometricSubscription;
   final StreamController<RecordingStatus> _statusController = StreamController<RecordingStatus>.broadcast();
   
   // Current session data
@@ -88,6 +91,8 @@ class RecordingController {
 
   // Session statistics
   Timer? _statusTimer;
+  int? _currentPressureAltitude;
+  bool _barometricCalibrated = false;
 
   /// Stream of recording status updates
   Stream<RecordingStatus> get statusStream => _statusController.stream;
@@ -95,10 +100,14 @@ class RecordingController {
   /// Current recording state
   RecordingState get state => _state;
 
-  /// Current flight (if any)
-  Flight? get currentFlight => _currentFlight;
-
-  /// Clear all recording state and stop any ongoing recording
+  /// Current pressure altitude from barometric sensor
+  int? get currentPressureAltitude => _currentPressureAltitude;
+  
+  /// Whether barometric sensor is active
+  bool get isBarometricActive => _barometricService.isActive;
+  
+  /// Barometric service status
+  Map<String, dynamic> get barometricStatus => _barometricService.getStatus();
   Future<void> clearState() async {
     // Stop recording if active
     if (_state != RecordingState.idle) {
@@ -131,10 +140,12 @@ class RecordingController {
     TakeoffLandingDetector? detector,
     FlightRepository? flightRepository,
     AuthService? authService,
+    BarometricService? barometricService,
   }) : _locationService = locationService ?? LocationService(),
        _detector = detector ?? TakeoffLandingDetector(),
        _flightRepository = flightRepository ?? FlightRepository(),
-       _authService = authService ?? AuthService();
+       _authService = authService ?? AuthService(),
+       _barometricService = barometricService ?? BarometricService();
 
   /// Start recording with the specified glider
   Future<bool> startRecording(Glider glider) async {
@@ -175,6 +186,21 @@ class RecordingController {
         onError: _handleLocationError,
       );
 
+      // Initialize and start barometric service if available
+      final barometricAvailable = await _barometricService.initialize();
+      if (barometricAvailable) {
+        await _barometricService.startMonitoring();
+        _barometricSubscription = _barometricService.altitudeStream.listen(
+          _handleBarometricUpdate,
+          onError: (error) {
+            print('Barometric error: $error');
+          },
+        );
+        print('Barometric monitoring started');
+      } else {
+        print('Barometric sensor not available - using GPS altitude only');
+      }
+
       // Start status timer for UI updates
       _statusTimer = Timer.periodic(const Duration(seconds: 1), (_) {
         _emitStatus('Recording started - waiting for takeoff');
@@ -207,6 +233,11 @@ class RecordingController {
       // Stop location updates
       await _locationService.stopLocationUpdates();
       _locationSubscription?.cancel();
+      
+      // Stop barometric monitoring
+      await _barometricService.stopMonitoring();
+      _barometricSubscription?.cancel();
+      
       _statusTimer?.cancel();
 
       final completedFlight = _currentFlight;
@@ -246,10 +277,21 @@ class RecordingController {
       latitude: locationData.latitude!,
       longitude: locationData.longitude!,
       gpsAltitudeM: locationData.altitude?.round(),
+      pressureAltitudeM: _currentPressureAltitude,
       speedMps: locationData.speed,
       accuracyM: locationData.accuracy,
       sequenceNumber: _fixSequenceNumber,
     );
+
+    // Auto-calibrate barometric altitude with GPS on first valid reading
+    if (!_barometricCalibrated && 
+        locationData.altitude != null && 
+        _barometricService.isActive && 
+        _barometricService.needsCalibration) {
+      _barometricService.calibrateWithGPS(locationData.altitude!.round());
+      _barometricCalibrated = true;
+      print('Barometric altitude auto-calibrated with GPS');
+    }
 
     _currentFixes.add(fix);
 
@@ -265,6 +307,11 @@ class RecordingController {
   /// Handle location service errors
   void _handleLocationError(dynamic error) {
     _emitStatus('Location error: $error');
+  }
+
+  /// Handle barometric altitude updates
+  void _handleBarometricUpdate(int altitudeM) {
+    _currentPressureAltitude = altitudeM;
   }
 
   /// Handle takeoff/landing detection results
@@ -410,8 +457,10 @@ class RecordingController {
   /// Clean up resources
   void dispose() {
     _locationSubscription?.cancel();
+    _barometricSubscription?.cancel();
     _statusTimer?.cancel();
     _locationService.dispose();
+    _barometricService.dispose();
     _statusController.close();
   }
 }

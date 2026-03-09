@@ -81,9 +81,9 @@ class FlightFix {
     );
   }
 
-  /// Best available altitude (prefers GPS over pressure altitude)
+  /// Best available altitude (prefers barometric over GPS for aviation accuracy)
   int? get bestAltitudeM {
-    return gpsAltitudeM ?? pressureAltitudeM;
+    return pressureAltitudeM ?? gpsAltitudeM;
   }
 
   /// Speed in km/h for display
@@ -140,6 +140,18 @@ class FlightFix {
   /// Time interval to another fix in seconds
   double timeIntervalToFix(FlightFix other) {
     return other.timestamp.difference(timestamp).inMilliseconds / 1000.0;
+  }
+
+  /// Calculate vertical speed to another fix in m/s (climb rate)
+  double? verticalSpeedToFix(FlightFix other) {
+    if (bestAltitudeM == null || other.bestAltitudeM == null) {
+      return null;
+    }
+    
+    final altitudeDelta = other.bestAltitudeM! - bestAltitudeM!;
+    final timeInterval = timeIntervalToFix(other);
+    
+    return timeInterval > 0 ? altitudeDelta / timeInterval : null;
   }
 
   /// Converts flight fix to Supabase map

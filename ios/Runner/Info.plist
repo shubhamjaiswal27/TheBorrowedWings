@@ -66,5 +66,20 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Location permissions for GPS tracking during paragliding flights -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to your location to record your paragliding flights, track GPS coordinates, and generate flight logs with accurate position data.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs access to your location to record your paragliding flights, track GPS coordinates, and generate flight logs with accurate position data even when the app is in the background.</string>
+	
+	<!-- Background modes for location tracking during flights -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
+	
+	<!-- Motion permission for barometric pressure sensor -->
+	<key>NSMotionUsageDescription</key>
+	<string>This app needs access to motion sensors to measure barometric pressure for accurate altitude tracking during your paragliding flights.</string>
 </dict>
 </plist>

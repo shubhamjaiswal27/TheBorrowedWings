@@ -48,6 +48,9 @@ dependencies:
   permission_handler: ^11.2.0
   path_provider: ^2.1.5
   path: ^1.9.1
+  
+  # Environmental sensors for barometric pressure
+  environment_sensors: ^0.3.0
 
 dev_dependencies:
   flutter_test:

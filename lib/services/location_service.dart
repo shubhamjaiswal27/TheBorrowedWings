@@ -58,6 +58,20 @@ class LocationService {
         return LocationServiceStatus.permissionPermanentlyDenied;
       }
 
+      // For iOS, also request "when in use" permission explicitly
+      try {
+        final whenInUseStatus = await perm.Permission.locationWhenInUse.status;
+        if (whenInUseStatus.isDenied) {
+          final result = await perm.Permission.locationWhenInUse.request();
+          if (result.isDenied) {
+            return LocationServiceStatus.permissionDenied;
+          }
+        }
+      } catch (e) {
+        // If locationWhenInUse is not available on this platform, continue
+        print('LocationWhenInUse permission not available: $e');
+      }
+
       // Configure location settings for flight tracking
       await _location.changeSettings(
         accuracy: _defaultAccuracy,

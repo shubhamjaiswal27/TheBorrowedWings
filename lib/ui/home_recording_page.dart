@@ -433,7 +433,19 @@ class _HomeRecordingPageState extends State<HomeRecordingPage> {
                       children: [
                         const Icon(Icons.height, color: Colors.blue),
                         const SizedBox(width: 8),
-                        Text('Altitude: ${location.altitudeMeters}m'),
+                        Text('GPS Alt: ${location.altitudeMeters}m'),
+                      ],
+                    ),
+                  ],
+                  // Show pressure altitude if available
+                  if (_recordingController.isBarometricActive && 
+                      _recordingController.currentPressureAltitude != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.air, color: Colors.purple),
+                        const SizedBox(width: 8),
+                        Text('Pressure Alt: ${_recordingController.currentPressureAltitude}m'),
                       ],
                     ),
                   ],
